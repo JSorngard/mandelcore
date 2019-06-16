@@ -52,7 +52,7 @@ if(__name__=="__main__"):
 	if(np.mod(im_points,2)==0):
 		im_points = int(im_points/2)
 	else:
-		print("Number of imaginatry points must be even.")
+		print("Number of imaginary points must be even.")
 		exit()
 
 	re_points= np.linspace(np.real(start),np.real(end),re_points)
