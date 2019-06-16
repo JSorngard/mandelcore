@@ -4,6 +4,6 @@ Generates a plot of the mandelbrot set using all available cpu cores. Currently 
 
 **Future:**
 
-Would like to make the image colored, like [this one]{https://preshing.com/20110926/high-resolution-mandelbrot-in-obfuscated-python/}.  
+Would like to make the image colored, like https://preshing.com/20110926/high-resolution-mandelbrot-in-obfuscated-python/.  
 
 Would like to not distort the image just because it is not a square.
