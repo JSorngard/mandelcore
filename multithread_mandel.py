@@ -3,16 +3,18 @@ import multiprocessing as mp
 import sys
 import imageio
 import os
-import mandelfortran
+from mandelfortran import mandel_calc
+import time
+from numba import jit
 
 #The highest allowed number of iterations.
 iters = 100
 
 def mandel_helper(cs,maxiterations=iters):
-	"""Takes in an array of values and calls mandel_func for each of them."""
+	"""Takes in an array of values and calls the Fortran function for each of them."""
 	result = np.zeros(np.shape(cs))
 	for index,c in enumerate(cs):
-		result[index] = mandelfortran.mandel_calc(np.real(c),np.imag(c),iters)
+		result[index] = mandel_calc(np.real(c),np.imag(c),iters)
 	return result
 
 """def mandel_func(c,maxiterations=iters):
@@ -35,30 +37,49 @@ def mandel_helper(cs,maxiterations=iters):
 
 	return iterations"""
 
-if(__name__=="__main__"):
+@jit
+def colorize_iters(itermatrix,x,y,maxiters=iters,i=1):
+	"""Replaces the number of iteration with an RGB triplet."""
+	colormatrix = np.zeros((x,y,3))
+	for row_id,row in enumerate(itermatrix):
+		for col_id,T in enumerate(row):
+			if(T == maxiters):
+				T = 0
+			#Maps 0 to black and other numbers between 0 and 1 to a range from brown to blue.
+			colormatrix[row_id,col_id] = [T*80 + T**9*i - 950*T**99, T*70 - 880*T**18 + 701*T**9, T*i**(1 - T**45*2)]
+
+	return colormatrix
+
+if(__name__ == "__main__"):
 
 	#Multiplatform clock
-	#get_timer = time.clock if sys.platform == "win32" else time.time
+	get_timer = time.clock if sys.platform == "win32" else time.time
 
 	#Defines the "window" to look at the fractal in.
 	start = -2.5 - 1.6j
 	end = .8 + 1.6j
 
 	#Number of points per axis to compute.
-	re_points = 10000
-	im_points = re_points
+	re_eval_points = 5000
+	im_eval_points = re_eval_points
 
 	multicore = True
+	colorize = False
+
+	if(colorize):
+		colorname = "_color"
+	else:
+		colorname = "_bw"
 
 	#Only compute half the points along the imaginary axis since there is a reflection symmetry.
-	if(np.mod(im_points,2)==0):
-		im_points = int(im_points/2)
+	if(np.mod(im_eval_points,2)==0):
+		im_eval_points = int(im_eval_points/2)
 	else:
 		print("Number of imaginary points must be even.")
 		exit()
 
-	re_points= np.linspace(np.real(start),np.real(end),re_points)
-	im_points= np.linspace(0,np.imag(end),im_points)
+	re_points= np.linspace(np.real(start),np.real(end),re_eval_points)
+	im_points= np.linspace(0,np.imag(end),im_eval_points)
 
 	re_grid,im_grid = np.meshgrid(re_points,im_points*1j,sparse=True)
 
@@ -78,54 +99,63 @@ if(__name__=="__main__"):
 	print("Size of grid: "+str(sys.getsizeof(grid)/1e6)+" MB.")
 
 	if(multicore):
-		print("Attempting to evaluate on many cores...")
-		filename_end = "multicore.png"
+		cores = mp.cpu_count()
+		print("Attempting to evaluate on "+str(cores)+" cores...")
+		filename_end = "_multicore.png"
 
 		#Create a pool with the number of threads equal to the number of processor cores.
 		print("Creating thread pool...")
-		cores = mp.cpu_count()
+		time = get_timer()
 		pool = mp.Pool(processes=cores)
 		#Warm up the pool
 		pool.map(mandel_helper,np.ones((10,cores)))
-		print("Done.")
+		time = get_timer() - time
+		print("Done in "+str(time)[:5]+" seconds.")
 
 		print("Computing...")
+		time = get_timer()
 		result = pool.map(mandel_helper,grid)
-		print("Done.")
+		time = get_timer() - time
+		print("Done in "+str(time)[:4]+" seconds.")
 
 	else:
 		print("Evaluating on a single core...")
-		filename_end = "singlecore.png"
+		filename_end = "_singlecore.png"
 		mandel_vector = np.vectorize(mandel_func)
 
 		print("Computing...")
+		time = get_timer()
 		result = mandel_vector(grid,iters)
-		print("Done.")
+		time = get_timer() - time
+		print("Done in "+str(time)[:4]+" seconds.")
 
 	print("Performing image manipulations...")
+	time = get_timer()
+	#Normalize result to 0-1
+	result = np.array(result)/float(iters)
 
-	#Adds a flipped copy of the image to the bottom.
+	if(colorize):
+		result = colorize_iters(result,im_eval_points,re_eval_points)
+	else:
+		#Scale up to 0-255. What should be black is now 255.
+		result *= 255 
+		#Invert so that black is 0 and white is 255.
+		result -= 255 
+		result = np.abs(result) 
+	
+	#Convert to uints for imageio.
+	result = result.astype(np.uint8)
+	
+	#Adds a flipped copy of the image to the top.
 	result = np.concatenate((np.flip(result,axis=0),result))
 
-	#Normalize to 0-1.
-	result = result/float(iters)
-	#Scale up to 0-255. What should be black is now 255.
-	result *= 255 
-	#Invert so that black is 0 and white is 255.
-	result -= 255 
-	result = np.abs(result) 
-	#Convert to uints for iamgeio.
-	result = result.astype(np.uint8)
+	time = get_timer() - time
+	print("Done in "+str(time)[:4]+" seconds.")
 
-
-	#def colorize(T):
-	#	return (T*80+T**9*255-950*T**99,T*70-880*T**18+701*T**9,T*255**(1-T**45*2))
-
-
-	print("Done.")
 	print("Writing image...")
-
+	time = get_timer()
 	path = os.path.dirname(os.path.abspath(__file__))
-	imageio.imwrite(path+"/mandel_"+filename_end,result)
-
-	print("Done.")
+	pathdelim = "\\" if sys.platform == "win32" else "/"
+	imageio.imwrite(path+pathdelim+"mandel"+colorname+filename_end,result)
+	time = get_timer() - time
+	print("Done in "+str(time)[:5]+" seconds.")
