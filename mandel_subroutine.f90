@@ -28,7 +28,7 @@ integer,intent(in) :: maxiters
 real*8 :: zr,zi,zrsqr,zisqr,q,cisqr
 integer :: iters
 
-!Automatically reject points in the main and period-2 bulbs.
+!Automatically reject points in the main cardioid and period-2 bulb.
 cisqr = ci*ci
 q = (cr - .25d0)**2.d0 + cisqr
 if((cr +1.d0)**2 + cisqr < 0.0625d0 .or. q + cr - .25d0 < .25d0*cisqr) then
@@ -63,6 +63,7 @@ mandel_calc = dble(iters)
 end function mandel_calc
 
 subroutine colorize(colorized,iters,n,m)
+!use omp_lib
 implicit none
 integer,intent(in) :: n,m
 real*8,dimension(n,m),intent(in) :: iters
@@ -72,6 +73,7 @@ integer,parameter :: i=1
 integer :: k,l
 real*8 :: T
 
+!$OMP PARALLEL DO shared(colorized,iters)
 do l=1,m
     do k=1,n
         T=iters(k,l)
@@ -80,5 +82,6 @@ do l=1,m
         colorized(k,l,3)= T*i**(1.d0 - T**45.d0*2.d0)
     end do
 end do
+!$OMP END PARALLEL DO
 
 end subroutine colorize
