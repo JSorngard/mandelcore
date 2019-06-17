@@ -1,7 +1,22 @@
 !program test
 !implicit none
 !real*8 :: mandel_calc
+!integer,parameter :: n=2
+!real*8,dimension(n,n) :: res
+!real*8,dimension(n,n,3) :: cres
+
+
 !write(*,*) mandel_calc(-2.d0,0.d0,1000)
+
+!res(1,1)=0.d0
+!res(1,2)=-1.d0
+!res(2,1)=-.33d0
+!res(2,2)=-.66d0
+!cres=0.d0
+
+!call colorize(cres,res,n,n)
+
+!write(*,*) cres(1,1,:)
 !end program test
 
 real*8 function mandel_calc(cr,ci,maxiters)
@@ -39,3 +54,23 @@ end do
 mandel_calc = iters
 
 end function mandel_calc
+
+subroutine colorize(colorized,iters,n,m)
+implicit none
+integer,intent(in) :: n,m
+real*8,dimension(n,m),intent(in) :: iters
+real*8,dimension(n,m,3),intent(inout) :: colorized
+!f2py intent(in,out) :: colorized
+integer,parameter :: i=1
+integer :: k,l,T
+
+do l=1,m
+    do k=1,n
+        T=iters(k,l)
+        colorized(k,l,1)=T*80.d0 + T**9.d0*i - 950.d0*T**99.d0
+        colorized(k,l,2)=T*70.d0 - 880.d0*T**18.d0 + 701.d0*T**9.d0
+        colorized(k,l,3)= T*i**(1.d0 - T**45.d0*2.d0)
+    end do
+end do
+
+end subroutine colorize

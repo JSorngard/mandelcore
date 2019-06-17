@@ -4,11 +4,32 @@ import sys
 import imageio
 import os
 from mandelfortran import mandel_calc
+from mandelfortran import colorize as fcolor
 import time
-from numba import jit
+
 
 #The highest allowed number of iterations.
 iters = 100
+
+#Defines the "window" to look at the fractal in.
+start = -2.5 - 1.6j
+end = .8 + 1.6j
+
+#Number of points per axis to compute.
+re_eval_points = 5000
+im_eval_points = re_eval_points
+
+#Compute it multithreaded.
+multicore = True
+
+#Make the image in color.
+colorize = True
+
+#What file type to save the image as.
+file_ext = ".png"
+
+#Color depth.
+depth = 255
 
 def mandel_helper(cs,maxiterations=iters):
 	"""Takes in an array of values and calls the Fortran function for each of them."""
@@ -37,34 +58,22 @@ def mandel_helper(cs,maxiterations=iters):
 
 	return iterations"""
 
-@jit
-def colorize_iters(itermatrix,x,y,maxiters=iters,i=1):
-	"""Replaces the number of iteration with an RGB triplet."""
-	colormatrix = np.zeros((x,y,3))
-	for row_id,row in enumerate(itermatrix):
-		for col_id,T in enumerate(row):
-			if(T == maxiters):
-				T = 0
-			#Maps 0 to black and other numbers between 0 and 1 to a range from brown to blue.
-			colormatrix[row_id,col_id] = [T*80 + T**9*i - 950*T**99, T*70 - 880*T**18 + 701*T**9, T*i**(1 - T**45*2)]
-
-	return colormatrix
+#def colorize_iters(itermatrix,x,y,maxiters=iters,i=1):
+#	"""Replaces the number of iteration with an RGB triplet."""
+#	colormatrix = np.zeros((x,y,3))
+#	for row_id,row in enumerate(itermatrix):
+#		for col_id,T in enumerate(row):
+#			
+#			#Maps 0 to black and other numbers between 0 and 1 to a range from brown to blue.
+#			colormatrix[row_id,col_id] = [T*80 + T**9*i - 950*T**99, T*70 - 880*T**18 + 701*T**9, T*i**(1 - T**45*2)]
+#
+#	return colormatrix
 
 if(__name__ == "__main__"):
 
 	#Multiplatform clock
 	get_timer = time.clock if sys.platform == "win32" else time.time
 
-	#Defines the "window" to look at the fractal in.
-	start = -2.5 - 1.6j
-	end = .8 + 1.6j
-
-	#Number of points per axis to compute.
-	re_eval_points = 5000
-	im_eval_points = re_eval_points
-
-	multicore = True
-	colorize = False
 
 	if(colorize):
 		colorname = "_color"
@@ -101,7 +110,7 @@ if(__name__ == "__main__"):
 	if(multicore):
 		cores = mp.cpu_count()
 		print("Attempting to evaluate on "+str(cores)+" cores...")
-		filename_end = "_multicore.png"
+		eval_type = "_multicore"
 
 		#Create a pool with the number of threads equal to the number of processor cores.
 		print("Creating thread pool...")
@@ -120,7 +129,7 @@ if(__name__ == "__main__"):
 
 	else:
 		print("Evaluating on a single core...")
-		filename_end = "_singlecore.png"
+		eval_type = "_singlecore"
 		mandel_vector = np.vectorize(mandel_func)
 
 		print("Computing...")
@@ -135,12 +144,15 @@ if(__name__ == "__main__"):
 	result = np.array(result)/float(iters)
 
 	if(colorize):
-		result = colorize_iters(result,im_eval_points,re_eval_points)
+		colorized = np.zeros((im_eval_points,re_eval_points,3))
+		colorized = fcolor(colorized,result)
+		result = colorized
+
 	else:
-		#Scale up to 0-255. What should be black is now 255.
-		result *= 255 
-		#Invert so that black is 0 and white is 255.
-		result -= 255 
+		#Scale up to 0-depth. What should be black is now depth.
+		result *= depth 
+		#Invert so that black is 0 and white is depth.
+		result -= depth 
 		result = np.abs(result) 
 	
 	#Convert to uints for imageio.
@@ -156,6 +168,6 @@ if(__name__ == "__main__"):
 	time = get_timer()
 	path = os.path.dirname(os.path.abspath(__file__))
 	pathdelim = "\\" if sys.platform == "win32" else "/"
-	imageio.imwrite(path+pathdelim+"mandel"+colorname+filename_end,result)
+	imageio.imwrite(path+pathdelim+"mandel"+colorname+eval_type+file_ext,result)
 	time = get_timer() - time
-	print("Done in "+str(time)[:5]+" seconds.")
+	print("Done in "+str(time)[:4]+" seconds.")
