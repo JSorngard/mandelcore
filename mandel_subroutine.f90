@@ -31,17 +31,19 @@ integer :: iters
 !Automatically reject points in the main cardioid and period-2 bulb.
 cisqr = ci*ci
 q = (cr - .25d0)**2.d0 + cisqr
-if((cr +1.d0)**2 + cisqr < 0.0625d0 .or. q + cr - .25d0 < .25d0*cisqr) then
+if((cr +1.d0)**2.d0 + cisqr < 0.0625d0 .or. q + cr - .25d0 < .25d0*cisqr) then
     mandel_calc = dble(maxiters)
     !mandel_calc = 0.d0
     return
 end if
 
-zr = 0
-zi = 0
+zr = 0.d0
+zi = 0.d0
 iters = 0
 zrsqr = zr*zr
 zisqr = zi*zi
+
+!This loop does only 3 multiplies per iteration.
 do while(zrsqr + zisqr <= 36.d0 .and. iters < maxiters) !36 instead of 4 for smoother coloring.
     zi = zr*zi
     zi = zi+zi !Multiply by 2.
