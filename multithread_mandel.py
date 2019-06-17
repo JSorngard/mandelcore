@@ -16,14 +16,14 @@ start = -2.5 - 1.6j
 end = .8 + 1.6j
 
 #Number of points per axis to compute.
-re_eval_points = 5000
+re_eval_points = 10000
 im_eval_points = re_eval_points
 
 #Compute it multithreaded.
 multicore = True
 
 #Make the image in color.
-colorize = True
+colorize = False
 
 #What file type to save the image as.
 file_ext = ".png"
@@ -150,7 +150,7 @@ if(__name__ == "__main__"):
 
 	else:
 		#Scale up to 0-depth. What should be black is now depth.
-		result *= depth 
+		result *= depth
 		#Invert so that black is 0 and white is depth.
 		result -= depth 
 		result = np.abs(result) 

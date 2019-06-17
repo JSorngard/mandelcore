@@ -32,7 +32,8 @@ integer :: iters
 cisqr = ci*ci
 q = (cr - .25d0)**2.d0 + cisqr
 if((cr +1.d0)**2 + cisqr < 0.0625d0 .or. q + cr - .25d0 < .25d0*cisqr) then
-    mandel_calc = maxiters
+    mandel_calc = dble(maxiters)
+    !mandel_calc = 0.d0
     return
 end if
 
@@ -41,7 +42,7 @@ zi = 0
 iters = 0
 zrsqr = zr*zr
 zisqr = zi*zi
-do while(zrsqr + zisqr <= 4.d0 .and. iters < maxiters)
+do while(zrsqr + zisqr <= 36.d0 .and. iters < maxiters) !36 instead of 4 for smoother coloring.
     zi = zr*zi
     zi = zi+zi !Multiply by 2.
     zi = zi + ci
@@ -51,7 +52,13 @@ do while(zrsqr + zisqr <= 4.d0 .and. iters < maxiters)
     iters = iters + 1
 end do
 
-mandel_calc = iters
+!if(iters == maxiters) then !In the set
+!    mandel_calc = dble(0.d0)
+!else
+!    mandel_calc = (2+(maxiters-iters)-4*sqrt(zrsqr+zisqr)**(-.4d0))/255.d0 !(0..1]
+!end if
+
+mandel_calc = dble(iters)
 
 end function mandel_calc
 
@@ -62,7 +69,8 @@ real*8,dimension(n,m),intent(in) :: iters
 real*8,dimension(n,m,3),intent(inout) :: colorized
 !f2py intent(in,out) :: colorized
 integer,parameter :: i=1
-integer :: k,l,T
+integer :: k,l
+real*8 :: T
 
 do l=1,m
     do k=1,n
