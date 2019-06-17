@@ -3,6 +3,7 @@ import multiprocessing as mp
 import sys
 import imageio
 import os
+import mandelfortran
 
 #The highest allowed number of iterations.
 iters = 100
@@ -11,12 +12,12 @@ def mandel_helper(cs,maxiterations=iters):
 	"""Takes in an array of values and calls mandel_func for each of them."""
 	result = np.zeros(np.shape(cs))
 	for index,c in enumerate(cs):
-		result[index] = mandel_func(c,iters)
+		result[index] = mandelfortran.mandel_calc(np.real(c),np.imag(c),iters)
 	return result
 
-def mandel_func(c,maxiterations=iters):
-	"""Takes a complex number and iterates the mandelbrot function on it until either 
-	its magnitude is larger than two, or it has iterated enough."""
+"""def mandel_func(c,maxiterations=iters):
+	#Takes a complex number and iterates the mandelbrot function on it until either 
+	#its magnitude is larger than two, or it has iterated enough.
 	x = np.real(c)
 	y = np.imag(c)
 	y2 = y**2.
@@ -32,7 +33,7 @@ def mandel_func(c,maxiterations=iters):
 		iterations += 1
 		z = z**2. + c
 
-	return iterations
+	return iterations"""
 
 if(__name__=="__main__"):
 
@@ -44,11 +45,12 @@ if(__name__=="__main__"):
 	end = .8 + 1.6j
 
 	#Number of points per axis to compute.
-	re_points = 7000
+	re_points = 10000
 	im_points = re_points
 
 	multicore = True
 
+	#Only compute half the points along the imaginary axis since there is a reflection symmetry.
 	if(np.mod(im_points,2)==0):
 		im_points = int(im_points/2)
 	else:
@@ -66,7 +68,7 @@ if(__name__=="__main__"):
 	elements = gridshape[0]*gridshape[1]
 	cmplxsize = sys.getsizeof(1+1j)
 	cmplxnparraysize = sys.getsizeof(np.array(1+1j))
-	cmplxnparray10size = sys.getsizeof((1+1j)*np.ones(10,dtype=complex))
+	cmplxnparray10size = sys.getsizeof((1+1j)*np.ones(1,dtype=complex))
 
 	print("Size of a complex number: "+str(cmplxsize)+" B.")
 	print("Size of a numpy array with a complex number: "+str(cmplxnparraysize)+" B.")
@@ -84,7 +86,7 @@ if(__name__=="__main__"):
 		cores = mp.cpu_count()
 		pool = mp.Pool(processes=cores)
 		#Warm up the pool
-		pool.map(mandel_func,range(cores))
+		pool.map(mandel_helper,np.ones((10,cores)))
 		print("Done.")
 
 		print("Computing...")
@@ -124,6 +126,6 @@ if(__name__=="__main__"):
 	print("Writing image...")
 
 	path = os.path.dirname(os.path.abspath(__file__))
-	imageio.imwrite(path+"\\mandel_"+filename_end,result)
+	imageio.imwrite(path+"/mandel_"+filename_end,result)
 
 	print("Done.")
