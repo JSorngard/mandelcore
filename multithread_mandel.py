@@ -16,17 +16,26 @@ start = -2.5 - 1.6j
 end = .8 + 1.6j
 
 #Number of points per axis to compute.
-re_eval_points = 10000
-im_eval_points = re_eval_points
+re_eval_points = 8000 #x-axis
+im_eval_points = re_eval_points #y-axis
 
 #Compute it multithreaded.
 multicore = True
 
-#Make the image in color.
+#Save the result as an image.
+saveimage = True
+
+#Make the image in color. Only relevant if saveimage is True.
 colorize = False
 
+#Save the resulting iteration grid to file
+saveresult = False
+
 #What file type to save the image as.
-file_ext = ".png"
+image_file_ext = ".png"
+
+#What file type to save the raw data as.
+data_file_ext = ".dat.gz"
 
 #Color depth.
 depth = 255
@@ -71,9 +80,17 @@ def mandel_helper(cs,maxiterations=iters):
 
 if(__name__ == "__main__"):
 
+	if(not saveresult and not saveimage):
+		print("Note: program will produce no output.")
+
+	#Determines the working directory of the program.
+	path = os.path.dirname(os.path.abspath(__file__))
+
+	#Determines whether to use \ or / for file paths.
+	pathdelim = "\\" if sys.platform == "win32" else "/"
+
 	#Multiplatform clock
 	get_timer = time.clock if sys.platform == "win32" else time.time
-
 
 	if(colorize):
 		colorname = "_color"
@@ -138,36 +155,47 @@ if(__name__ == "__main__"):
 		time = get_timer() - time
 		print("Done in "+str(time)[:4]+" seconds.")
 
-	print("Performing image manipulations...")
-	time = get_timer()
-	#Normalize result to 0-1
-	result = np.array(result)/float(iters)
+	if(saveresult):
+		print("Writing raw data...")
+		if(data_file_ext[-3:] == ".gz"):
+			print(" compressing...")
+		time = get_timer()
+		#Write image to file. If the file name ends in .gz numpy automatically compresses it.
+		np.savetxt(path+pathdelim+"mandel"+colorname+eval_type+data_file_ext,result,delimiter=' ')
+		time = get_timer() - time
+		print("Done in "+str(time)[:4]+" seconds.")
 
-	if(colorize):
-		colorized = np.zeros((im_eval_points,re_eval_points,3))
-		colorized = fcolor(colorized,result)
-		result = colorized
+	if(saveimage):
+		print("Performing image manipulations...")
+		time = get_timer()
 
-	else:
-		#Scale up to 0-depth. What should be black is now depth.
-		result *= depth
-		#Invert so that black is 0 and white is depth.
-		result -= depth 
-		result = np.abs(result) 
+		#Normalize result to 0-1
+		result = np.array(result)/float(iters)
+
+		if(colorize):
+			colorized = np.zeros((im_eval_points,re_eval_points,3))
+			colorized = fcolor(colorized,result)
+			result = colorized
+
+		else:
+			#Scale up to 0-depth. What should be black is now depth.
+			result *= depth
+			#Invert so that black is 0 and white is depth.
+			result -= depth 
+			result = np.abs(result) 
 	
-	#Convert to uints for imageio.
-	result = result.astype(np.uint8)
-	
-	#Adds a flipped copy of the image to the top.
-	result = np.concatenate((np.flip(result,axis=0),result))
+		#Convert to uints for imageio.
+		result = result.astype(np.uint8)
+		
+		#Adds a flipped copy of the image to the top.
+		result = np.concatenate((np.flip(result,axis=0),result))
 
-	time = get_timer() - time
-	print("Done in "+str(time)[:4]+" seconds.")
+		time = get_timer() - time
+		print("Done in "+str(time)[:4]+" seconds.")
 
-	print("Writing image...")
-	time = get_timer()
-	path = os.path.dirname(os.path.abspath(__file__))
-	pathdelim = "\\" if sys.platform == "win32" else "/"
-	imageio.imwrite(path+pathdelim+"mandel"+colorname+eval_type+file_ext,result)
-	time = get_timer() - time
-	print("Done in "+str(time)[:4]+" seconds.")
+		print("Writing image...")
+		time = get_timer()
+		#Write image to file.
+		imageio.imwrite(path+pathdelim+"mandel"+colorname+eval_type+image_file_ext,result)
+		time = get_timer() - time
+		print("Done in "+str(time)[:4]+" seconds.")
