@@ -9,15 +9,18 @@ from mandelfortran import colorize as fcolor
 import time
 
 #The highest allowed number of iterations.
-iters = 256
+iters = 100
 
-#Defines the "window" to look at the fractal in.
-start = -2.5 - 1.6j
-end = .8 + 1.6j
+#Sets the aspect ratio of the image.
+aspect_ratio = 3./2.
+
+#Defines the "window" to look at the fractal in. Make sure to match the apect ratio.
+start = -2.7-1.333j
+end = 1.3+1.333j
 
 #Number of points per axis to compute.
-re_eval_points = 1000 #x-axis
-im_eval_points = re_eval_points #y-axis
+im_eval_points = 1000 #y-axis. Must be even.
+re_eval_points = int(aspect_ratio*im_eval_points) #x-axis
 
 #Compute it multithreaded.
 multicore = True
@@ -211,6 +214,6 @@ if(__name__ == "__main__"):
 		print("Writing image...")
 		time = get_timer()
 		#Write image to file.
-		imageio.imwrite(path+pathdelim+"mandel_"+str(iters)+"_iterations"+colorname+eval_type+image_file_ext,result)
+		imageio.imwrite(path+pathdelim+"mandelbrot_"+str(iters)+"_iterations"+colorname+eval_type+image_file_ext,result)
 		time = get_timer() - time
 		print("Done in "+str(time)[:4]+" seconds.")

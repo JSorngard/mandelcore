@@ -1,6 +1,6 @@
 **Multi threaded mandelbrot generator**
 
-Generates a plot of the mandelbrot set using all available cpu cores. Currently has a problem with memory utilization leading to crashes for an image larger than \~7000^2 pixels on windows and \~10000^2 pixels on linux.
+Generates a plot of the mandelbrot set using all available cpu cores. Does the iterating in Fortran using OpenMP.
 
 **Future:**
 
