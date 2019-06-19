@@ -3,3 +3,5 @@
 *.dat
 *.gz
 *.so
+*.pyd
+mandelfortran
