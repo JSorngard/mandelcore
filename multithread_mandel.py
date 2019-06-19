@@ -9,14 +9,14 @@ import time
 
 
 #The highest allowed number of iterations.
-iters = 100
+iters = 256
 
 #Defines the "window" to look at the fractal in.
 start = -2.5 - 1.6j
 end = .8 + 1.6j
 
 #Number of points per axis to compute.
-re_eval_points = 8000 #x-axis
+re_eval_points = 10000 #x-axis
 im_eval_points = re_eval_points #y-axis
 
 #Compute it multithreaded.
@@ -196,6 +196,6 @@ if(__name__ == "__main__"):
 		print("Writing image...")
 		time = get_timer()
 		#Write image to file.
-		imageio.imwrite(path+pathdelim+"mandel"+colorname+eval_type+image_file_ext,result)
+		imageio.imwrite(path+pathdelim+"mandel_"+str(iters)+"_iterations"+colorname+eval_type+image_file_ext,result)
 		time = get_timer() - time
 		print("Done in "+str(time)[:4]+" seconds.")
