@@ -4,9 +4,9 @@ import sys
 import imageio
 import os
 from mandelfortran import mandel_calc
+from mandelfortran import mandel_calc_array
 from mandelfortran import colorize as fcolor
 import time
-
 
 #The highest allowed number of iterations.
 iters = 256
@@ -16,11 +16,15 @@ start = -2.5 - 1.6j
 end = .8 + 1.6j
 
 #Number of points per axis to compute.
-re_eval_points = 10000 #x-axis
+re_eval_points = 7000 #x-axis
 im_eval_points = re_eval_points #y-axis
 
 #Compute it multithreaded.
 multicore = True
+
+#The method of parallelization.
+#If true it will be openmp in fortran, otherwise multiprocessing in python.
+fortran_omp = True
 
 #Save the result as an image.
 saveimage = True
@@ -129,20 +133,29 @@ if(__name__ == "__main__"):
 		print("Attempting to evaluate on "+str(cores)+" cores...")
 		eval_type = "_multicore"
 
-		#Create a pool with the number of threads equal to the number of processor cores.
-		print("Creating thread pool...")
-		time = get_timer()
-		pool = mp.Pool(processes=cores)
-		#Warm up the pool
-		pool.map(mandel_helper,np.ones((10,cores)))
-		time = get_timer() - time
-		print("Done in "+str(time)[:5]+" seconds.")
+		if(fortran_omp):
+			print("Computing...")
+			time = get_timer()
+			grid = mandel_calc_array(grid,iters)
+			result = grid
+			time = get_timer() - time
+			print("Done in "+str(time)[:4]+" seconds.")			
 
-		print("Computing...")
-		time = get_timer()
-		result = pool.map(mandel_helper,grid)
-		time = get_timer() - time
-		print("Done in "+str(time)[:4]+" seconds.")
+		else:
+			#Create a pool with the number of threads equal to the number of processor cores.
+			print("Creating thread pool...")
+			time = get_timer()
+			pool = mp.Pool(processes=cores)
+			#Warm up the pool
+			pool.map(mandel_helper,np.ones((10,cores)))
+			time = get_timer() - time
+			print("Done in "+str(time)[:5]+" seconds.")
+
+			print("Computing...")
+			time = get_timer()
+			result = pool.map(mandel_helper,grid)
+			time = get_timer() - time
+			print("Done in "+str(time)[:4]+" seconds.")
 
 	else:
 		print("Evaluating on a single core...")

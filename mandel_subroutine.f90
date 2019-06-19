@@ -1,25 +1,25 @@
 !program test
 !implicit none
-!real*8 :: mandel_calc
+!integer :: mandel_calc,maxiters
 !integer,parameter :: n=2
-!real*8,dimension(n,n) :: res
-!real*8,dimension(n,n,3) :: cres
+!complex*16,dimension(n,n) :: res
 
+!maxiters=1000
 
-!write(*,*) mandel_calc(-2.d0,0.d0,1000)
+!write(*,*) mandel_calc(.3333d0,0.d0,maxiters)
 
-!res(1,1)=0.d0
-!res(1,2)=-1.d0
-!res(2,1)=-.33d0
-!res(2,2)=-.66d0
-!cres=0.d0
+!res(1,1) = dcmplx(0.d0,0.d0)
+!res(1,2) = dcmplx(.333333d0,0.d0)
+!res(2,1) = dcmplx(-1.d0,0.d0)
+!res(2,2) = dcmplx(0.d0,.5d0)
 
-!call colorize(cres,res,n,n)
+!call mandel_calc_array(res,maxiters,n,n)
 
-!write(*,*) cres(1,1,:)
+!write(*,*) res
+
 !end program test
 
-real*8 function mandel_calc(cr,ci,maxiters)
+integer function mandel_calc(cr,ci,maxiters)
 !An attempt at a fast mandelbrot routine to be used by python through f2py.
 implicit none
 
@@ -32,7 +32,7 @@ integer :: iters
 cisqr = ci*ci
 q = (cr - .25d0)**2.d0 + cisqr
 if((cr +1.d0)**2.d0 + cisqr < 0.0625d0 .or. q + cr - .25d0 < .25d0*cisqr) then
-    mandel_calc = dble(maxiters)
+    mandel_calc = maxiters
     !mandel_calc = 0.d0
     return
 end if
@@ -60,9 +60,31 @@ end do
 !    mandel_calc = (2+(maxiters-iters)-4*sqrt(zrsqr+zisqr)**(-.4d0))/255.d0 !(0..1]
 !end if
 
-mandel_calc = dble(iters)
+mandel_calc = iters
 
 end function mandel_calc
+
+subroutine mandel_calc_array(grid,maxiters,n,m)
+!Multithreaded version of mandel_calc working on the entire array at once.
+use omp_lib
+implicit none
+integer,intent(in) :: n,m
+integer,intent(in) :: maxiters
+complex*16,intent(inout),dimension(n,m) :: grid
+!f2py intent(in,out) :: grid
+
+integer :: mandel_calc
+integer :: i,j
+
+!$OMP PARALLEL DO shared(grid)
+do j=1,m
+    do i=1,n
+        grid(i,j) = dcmplx(mandel_calc(dble(grid(i,j)),aimag(grid(i,j)),maxiters),0.d0)
+    end do
+end do
+!$OMP END PARALLEL DO
+
+end subroutine mandel_calc_array
 
 subroutine colorize(colorized,iters,n,m)
 !use omp_lib
