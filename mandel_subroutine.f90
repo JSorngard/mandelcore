@@ -25,17 +25,25 @@ implicit none
 
 real*8,intent(in) :: cr,ci
 integer,intent(in) :: maxiters
-real*8 :: zr,zi,zrsqr,zisqr,q,cisqr
+real*8 :: zr,zi,zrsqr,zisqr,mag2,cisqr
 integer :: iters
 
 !Automatically reject points in the main cardioid and period-2 bulb.
 cisqr = ci*ci
-q = (cr - .25d0)**2.d0 + cisqr
-if((cr +1.d0)**2.d0 + cisqr < 0.0625d0 .or. q + cr - .25d0 < .25d0*cisqr) then
+mag2 = cr*cr+cisqr
+
+!         reject period 2 bulb                     reject main cardioid.
+if((cr +1.d0)**2.d0 + cisqr <= 0.0625d0 .or. mag2*(8.d0*mag2-3.d0) <= .09375d0) then
     mandel_calc = maxiters
     !mandel_calc = 0.d0
     return
 end if
+
+!Alternative way of checking main cardioid: compute q
+!q = (cr - .25d0)**2.d0 + cisqr
+!And check whether
+!q*(q+(cr-.25d0)) < .25d0*cisqr
+!Might be faster?
 
 zr = 0.d0
 zi = 0.d0
@@ -46,7 +54,7 @@ zisqr = zi*zi
 !This loop does only 3 multiplies per iteration.
 do while(zrsqr + zisqr <= 36.d0 .and. iters < maxiters) !36 instead of 4 for smoother coloring.
     zi = zr*zi
-    zi = zi+zi !Multiply by 2.
+    zi = zi + zi !Multiply by 2.
     zi = zi + ci
     zr = zrsqr - zisqr + cr
     zrsqr = zr*zr
@@ -57,7 +65,7 @@ end do
 !if(iters == maxiters) then !In the set
 !    mandel_calc = dble(0.d0)
 !else
-!    mandel_calc = (2+(maxiters-iters)-4*sqrt(zrsqr+zisqr)**(-.4d0))/255.d0 !(0..1]
+!    mandel_calc = (2+(maxiters-iters)-4*sqrt(zrsqr+zisqr)**(-.4d0))/255.d0 !Puts the answer in the range 0-1
 !end if
 
 mandel_calc = iters
@@ -68,8 +76,7 @@ subroutine mandel_calc_array(grid,maxiters,n,m)
 !Multithreaded version of mandel_calc working on the entire array at once.
 use omp_lib
 implicit none
-integer,intent(in) :: n,m
-integer,intent(in) :: maxiters
+integer,intent(in) :: n,m,maxiters
 complex*16,intent(inout),dimension(n,m) :: grid
 !f2py intent(in,out) :: grid
 
@@ -87,7 +94,7 @@ end do
 end subroutine mandel_calc_array
 
 subroutine colorize(colorized,iters,n,m)
-!use omp_lib
+use omp_lib
 implicit none
 integer,intent(in) :: n,m
 real*8,dimension(n,m),intent(in) :: iters

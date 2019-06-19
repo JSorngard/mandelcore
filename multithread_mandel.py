@@ -16,7 +16,7 @@ start = -2.5 - 1.6j
 end = .8 + 1.6j
 
 #Number of points per axis to compute.
-re_eval_points = 7000 #x-axis
+re_eval_points = 1000 #x-axis
 im_eval_points = re_eval_points #y-axis
 
 #Compute it multithreaded.
@@ -38,7 +38,7 @@ saveresult = False
 #What file type to save the image as.
 image_file_ext = ".png"
 
-#What file type to save the raw data as.
+#What file type to save the raw data as. If it ends in .gz it will be compressed.
 data_file_ext = ".dat.gz"
 
 #Color depth.
@@ -48,39 +48,41 @@ def mandel_helper(cs,maxiterations=iters):
 	"""Takes in an array of values and calls the Fortran function for each of them."""
 	result = np.zeros(np.shape(cs))
 	for index,c in enumerate(cs):
-		result[index] = mandel_calc(np.real(c),np.imag(c),iters)
+		#result[index] = mandel_calc(np.real(c),np.imag(c),iters)
+		result[index] = mandel_func(c,iters)
 	return result
 
-"""def mandel_func(c,maxiterations=iters):
+def mandel_func(c,maxiterations=iters):
 	#Takes a complex number and iterates the mandelbrot function on it until either 
-	#its magnitude is larger than two, or it has iterated enough.
+	#its magnitude is larger than six (2 gives worse colr fade), or it has iterated enough.
 	x = np.real(c)
 	y = np.imag(c)
 	y2 = y**2.
-	q=(x-.25)**2. + y2
+	#q=(x-.25)**2. + y2
+	mag2=x**2 + y2
 
 	#Filter out all points inside the main bulb and the period-2 bulb.
-	if((x + 1.)**2 + y2 < 0.0625 or q + (x - .25) < .25*y2):
+	if((x + 1.)**2 + y2 < 0.0625 or mag2*(8.*mag2-3.) <= .09375 - x):
 		return maxiterations
 
 	z = 0+0j
 	iterations=0
-	while(np.real(z)**2. + np.imag(z)**2. <= 4. and iterations < maxiterations):
+	while(np.real(z)**2. + np.imag(z)**2. <= 36. and iterations < maxiterations):
 		iterations += 1
 		z = z**2. + c
 
-	return iterations"""
+	return iterations
 
-#def colorize_iters(itermatrix,x,y,maxiters=iters,i=1):
-#	"""Replaces the number of iteration with an RGB triplet."""
-#	colormatrix = np.zeros((x,y,3))
-#	for row_id,row in enumerate(itermatrix):
-#		for col_id,T in enumerate(row):
-#			
-#			#Maps 0 to black and other numbers between 0 and 1 to a range from brown to blue.
-#			colormatrix[row_id,col_id] = [T*80 + T**9*i - 950*T**99, T*70 - 880*T**18 + 701*T**9, T*i**(1 - T**45*2)]
-#
-#	return colormatrix
+def colorize_iters(itermatrix,maxiters=iters,i=1):
+	"""Replaces the number of iteration with an RGB triplet."""
+	colormatrix = np.zeros((np.concatenate(np.shape(itermatrix),3)))
+	for row_id,row in enumerate(itermatrix):
+		for col_id,T in enumerate(row):
+			
+			#Maps 0 to black and other numbers between 0 and 1 to a range from brown to blue.
+			colormatrix[row_id,col_id] = [T*80 + T**9*i - 950*T**99, T*70 - 880*T**18 + 701*T**9, T*i**(1 - T**45*2)]
+
+	return colormatrix
 
 if(__name__ == "__main__"):
 
@@ -94,7 +96,7 @@ if(__name__ == "__main__"):
 	pathdelim = "\\" if sys.platform == "win32" else "/"
 
 	#Multiplatform clock
-	get_timer = time.clock if sys.platform == "win32" else time.time
+	get_timer = time.perf_counter if sys.platform == "win32" else time.time
 
 	if(colorize):
 		colorname = "_color"

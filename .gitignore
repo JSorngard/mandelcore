@@ -5,3 +5,4 @@
 *.so
 *.pyd
 mandelfortran
+*.exe
