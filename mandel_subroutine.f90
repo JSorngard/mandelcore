@@ -30,20 +30,17 @@ integer :: iters
 
 !Automatically reject points in the main cardioid and period-2 bulb.
 cisqr = ci*ci
+!q = (cr - .25d0)**2.d0 + cisqr
 mag2 = cr*cr+cisqr
 
 !         reject period 2 bulb                     reject main cardioid.
-if((cr +1.d0)**2.d0 + cisqr <= 0.0625d0 .or. mag2*(8.d0*mag2-3.d0) <= .09375d0) then
+if((cr +1.d0)**2.d0 + cisqr <= 0.0625d0 .or. mag2*(8.d0*mag2-3.d0) <= .09375d0 - cr) then
+!Alternative:
+!if((cr +1.d0)**2.d0 + cisqr <= 0.0625d0 .or. q*(q+(cr-.25d0)) < .25d0*cisqr) then
     mandel_calc = maxiters
     !mandel_calc = 0.d0
     return
 end if
-
-!Alternative way of checking main cardioid: compute q
-!q = (cr - .25d0)**2.d0 + cisqr
-!And check whether
-!q*(q+(cr-.25d0)) < .25d0*cisqr
-!Might be faster?
 
 zr = 0.d0
 zi = 0.d0
@@ -93,7 +90,7 @@ end do
 
 end subroutine mandel_calc_array
 
-subroutine colorize(colorized,iters,n,m)
+subroutine fcolor(colorized,iters,n,m)
 use omp_lib
 implicit none
 integer,intent(in) :: n,m
@@ -115,4 +112,133 @@ do l=1,m
 end do
 !$OMP END PARALLEL DO
 
-end subroutine colorize
+end subroutine fcolor
+
+!module fortfilt
+!  implicit none
+
+!  private ! everything private by default
+!  public :: naiveGauss
+ ! public :: fastGauss
+ ! public :: BoxBlur
+
+!contains
+
+    subroutine naiveGauss (source, filtered, r, nx, ny)
+        use omp_lib
+        implicit none
+        integer, intent(in)                          :: r,nx,ny
+        double precision, intent(in)                 :: source(nx,ny)
+        double precision, intent(out)                :: filtered(nx,ny)
+
+        double precision, parameter                  :: PI = 4.*atan(1.)
+
+        integer                                      :: i, j, k, l
+        integer                                      :: ii, jj      ! inside the array
+
+        double precision                             :: val, wsum
+        double precision                             :: dsq         ! distance squared
+        double precision                             :: wght        ! weight
+        
+        !$OMP PARALLEL DO shared(source,filtered)
+        do i = 1, nx
+            do j = 1, ny
+                val = 0
+                wsum = 0
+                do k = i-r, i+r     ! inner loop over kernel
+                    do l = j-r, j+r  ! inner loop over kernel
+                        ii = min(nx, max(1,k))   ! make sure i is always inside the grid (this implies values are extendet (stretched at the boundaries))
+                        jj = min(ny, max(1,l))   ! make sure j is always inside the grid (this implies values are extendet (stretched at the boundaries))
+                        dsq = (j-l)**2 + (i-k)**2
+                        wght = exp(-dsq / (2.d0*r**2)) / (2.d0*PI*r**2)
+                        val = val + source(ii,jj) * wght
+                        wsum = wsum + wght
+                ! print *, i,j, k, l, ii, jj, dsq
+                    end do
+                end do
+                filtered(i,j) = val / wsum
+            end do
+        end do
+        !$OMP END PARALLEL DO
+    end subroutine naiveGauss
+
+
+  subroutine BoxBlurH (source, filtered, r, nx, ny)
+    use omp_lib
+    ! computes horizontal blur
+    implicit none
+    integer, intent(in)                          :: r,nx,ny
+    double precision, intent(in)                 :: source(nx,ny)
+    double precision, intent(out)                :: filtered(nx,ny)
+
+    double precision                             :: wght  ! weight
+    double precision                             :: sum  
+    integer                                      :: i,j
+    integer                                      :: il    ! leftmost  pixel which should be removed from the accumulator
+    integer                                      :: ir    ! rightmost pixel which should be added   to   the accumulator
+    
+    wght = 1.d0 / (2.d0*r+1.d0)    
+
+    !$OMP PARALLEL DO shared(source,filtered)
+    do j = 1, ny   ! loop over all rows
+       ! compute sum at first pixel
+       sum = source(1,j)
+       do i = 1, r  ! loop over box kernel
+          sum = sum + source(1,j) + source(i+1,j) ! always take 1 as left pixel, to not get out of grid
+          ! print *, sum
+       end do
+
+       ! generate output pixel, then update running sum
+       do i = 1, nx
+          ! print *, j, i, sum
+          filtered(i,j) = sum * wght
+          il = max(i-r, 1)     ! make sure we dont get off the grid
+          ir = min(i+r+1, nx)  ! make sure we dont get off the grid
+          sum = sum + source(ir,j) - source(il,j)
+       end do
+    end do
+    !$OMP END PARALLEL DO
+       
+  end subroutine BoxBlurH
+
+  
+  subroutine BoxBlur (source, filtered, r, nx, ny)
+    ! computes box blur, by calling horizontal boxblur twice, the second time with tansposed matrix
+    implicit none
+    integer, intent(in)                          :: r,nx,ny
+    double precision, intent(in)                 :: source(nx,ny)
+    double precision, intent(out)                :: filtered(nx,ny)
+    
+    double precision                             :: source_t(ny,nx)   ! source transposed
+    double precision                             :: filtered_t(ny,nx)   ! filtered transposed
+ 
+
+    ! first horizontal blur
+    call BoxBlurH (source, filtered, r, nx ,ny)
+    ! then transpose result and call horizontal blur again, now really doing vertical blur
+    source_t = transpose (filtered)
+    call BoxBlurH (source_t, filtered_t, r, ny, nx)
+    ! transpose again, to get back initial shape
+    filtered = transpose (filtered_t)
+    
+  end subroutine BoxBlur
+
+  
+  subroutine fastGauss (source, filtered, r, nx, ny)
+    ! computes a fast approximation to a Gaussian filter, by applying a series of box filters
+    implicit none
+    integer, intent(in)                          :: r,nx,ny
+    double precision, intent(in)                 :: source(nx,ny)
+    double precision, intent(out)                :: filtered(nx,ny)
+    
+    double precision                             :: tmpfilter1(nx,ny)   ! tmp array to store intermediate results
+    double precision                             :: tmpfilter2(nx,ny)   ! tmp array to store intermediate results
+    
+    call BoxBlur (source, tmpfilter1, r, nx, ny)
+    call BoxBlur (tmpfilter1, tmpfilter2, r, nx, ny) !Possible to use source instead of tmpfilter2 if source has intent(inout), but at the cost of messing up source.
+    call BoxBlur (tmpfilter2, filtered, r, nx, ny)
+
+  end subroutine fastGauss
+
+  
+!end module fortfilt
