@@ -114,15 +114,7 @@ end do
 
 end subroutine fcolor
 
-!module fortfilt
-!  implicit none
-
-!  private ! everything private by default
-!  public :: naiveGauss
- ! public :: fastGauss
- ! public :: BoxBlur
-
-!contains
+!The below routines are based on fasticonv by Sebastian Beyer at https://github.com/sebastianbeyer/fasticonv but modified to work with static memory and openmp.
 
     subroutine naiveGauss (source, filtered, r, nx, ny)
         use omp_lib
@@ -239,6 +231,3 @@ end subroutine fcolor
     call BoxBlur (tmpfilter2, filtered, r, nx, ny)
 
   end subroutine fastGauss
-
-  
-!end module fortfilt

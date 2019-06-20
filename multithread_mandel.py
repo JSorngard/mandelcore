@@ -3,9 +3,10 @@ import multiprocessing as mp
 import sys
 import imageio
 import os
-from mandelfortran import mandel_calc
-from mandelfortran import mandel_calc_array
-from mandelfortran import colorize as fcolor
+from mandelfortran import *
+#from mandelfortran import mandel_calc
+#from mandelfortran import mandel_calc_array
+#from mandelfortran import colorize as fcolor
 import time
 
 #The highest allowed number of iterations.
@@ -19,7 +20,7 @@ start = -2.7-1.333j
 end = 1.3+1.333j
 
 #Number of points per axis to compute.
-im_eval_points = 1000 #y-axis. Must be even.
+im_eval_points = 15000 #y-axis. Must be even.
 re_eval_points = int(aspect_ratio*im_eval_points) #x-axis
 
 #Compute it multithreaded.
@@ -32,8 +33,12 @@ fortran_omp = True
 #Save the result as an image.
 saveimage = True
 
+#Make a pass of gaussian blur.
+blur = False #Blurring requires allocating an extra image in memory, just as large as the main one. The image can therefore not be as big with this option turned on.
+radius = 1 #the radius of the gaussian blur. 1 is probably optimal.
+
 #Make the image in color. Only relevant if saveimage is True.
-colorize = False
+colorize = False #This option requires the allocation of an extra image in memory, three times as large as the main one. The image must therefore be much smaller with this option turned on.
 
 #Save the resulting iteration grid to file
 saveresult = False
@@ -47,17 +52,11 @@ data_file_ext = ".dat.gz"
 #Color depth.
 depth = 255
 
-def mandel_helper(cs,maxiterations=iters):
-	"""Takes in an array of values and calls the Fortran function for each of them."""
-	result = np.zeros(np.shape(cs))
-	for index,c in enumerate(cs):
-		#result[index] = mandel_calc(np.real(c),np.imag(c),iters)
-		result[index] = mandel_func(c,iters)
-	return result
+#Print extra information about memory use.
+memory_debug = False
 
 def mandel_func(c,maxiterations=iters):
-	#Takes a complex number and iterates the mandelbrot function on it until either 
-	#its magnitude is larger than six (2 gives worse colr fade), or it has iterated enough.
+	"""Takes a complex number and iterates the mandelbrot function on it until either its magnitude is larger than six (2 gives worse colour fade), or it has iterated enough."""
 	x = np.real(c)
 	y = np.imag(c)
 	y2 = y**2.
@@ -76,17 +75,6 @@ def mandel_func(c,maxiterations=iters):
 
 	return iterations
 
-def colorize_iters(itermatrix,maxiters=iters,i=1):
-	"""Replaces the number of iteration with an RGB triplet."""
-	colormatrix = np.zeros((np.concatenate(np.shape(itermatrix),3)))
-	for row_id,row in enumerate(itermatrix):
-		for col_id,T in enumerate(row):
-			
-			#Maps 0 to black and other numbers between 0 and 1 to a range from brown to blue.
-			colormatrix[row_id,col_id] = [T*80 + T**9*i - 950*T**99, T*70 - 880*T**18 + 701*T**9, T*i**(1 - T**45*2)]
-
-	return colormatrix
-
 if(__name__ == "__main__"):
 
 	if(not saveresult and not saveimage):
@@ -100,11 +88,12 @@ if(__name__ == "__main__"):
 
 	#Multiplatform clock
 	get_timer = time.perf_counter if sys.platform == "win32" else time.time
+	
+	total_time = get_timer()
 
-	if(colorize):
-		colorname = "_color"
-	else:
-		colorname = "_bw"
+	colorname = "_color" if colorize else "_bw"
+
+	blurname = "_blur="+str(radius) if blur else ""
 
 	#Only compute half the points along the imaginary axis since there is a reflection symmetry.
 	if(np.mod(im_eval_points,2)==0):
@@ -119,19 +108,20 @@ if(__name__ == "__main__"):
 	re_grid,im_grid = np.meshgrid(re_points,im_points*1j,sparse=True)
 
 	grid = re_grid + im_grid
-		
-	gridshape = np.shape(grid)
-	elements = gridshape[0]*gridshape[1]
-	cmplxsize = sys.getsizeof(1+1j)
-	cmplxnparraysize = sys.getsizeof(np.array(1+1j))
-	cmplxnparray10size = sys.getsizeof((1+1j)*np.ones(1,dtype=complex))
+	
+	if(memory_debug):		
+		gridshape = np.shape(grid)
+		elements = gridshape[0]*gridshape[1]
+		cmplxsize = sys.getsizeof(1+1j)
+		cmplxnparraysize = sys.getsizeof(np.array(1+1j))
+		cmplxnparray10size = sys.getsizeof((1+1j)*np.ones(1,dtype=complex))
 
-	print("Size of a complex number: "+str(cmplxsize)+" B.")
-	print("Size of a numpy array with a complex number: "+str(cmplxnparraysize)+" B.")
-	print("Size of a numpy array with 10 complex numbers: "+str(cmplxnparray10size)+" B.")
-	print("Elements in grid: "+str(elements)+".")
-	print("Grid 'should' take up roughly "+str(elements*cmplxsize/1000000)+" MB.")
-	print("Size of grid: "+str(sys.getsizeof(grid)/1e6)+" MB.")
+		print("Size of a complex number: "+str(cmplxsize)+" B.")
+		print("Size of a numpy array with a complex number: "+str(cmplxnparraysize)+" B.")
+		print("Size of a numpy array with 10 complex numbers: "+str(cmplxnparray10size)+" B.")
+		print("Elements in grid: "+str(elements)+".")
+		print("Grid 'should' take up roughly "+str(elements*cmplxsize/1000000)+" MB.")
+		print("Size of grid: "+str(sys.getsizeof(grid)/1e6)+" MB.")
 
 	if(multicore):
 		cores = mp.cpu_count()
@@ -186,16 +176,28 @@ if(__name__ == "__main__"):
 	if(saveimage):
 		print("Performing image manipulations...")
 		time = get_timer()
+		
+		if(blur):
+			print(" blurring...")
+			blurred = np.zeros(np.shape(result))
+			blurred = fastgauss(np.real(result),radius)
+			result = blurred
 
 		#Normalize result to 0-1
+		
+		print(" normalizing...")
 		result = np.array(result)/float(iters)
+		
+		
 
 		if(colorize):
+			print(" colouring...")
 			colorized = np.zeros((im_eval_points,re_eval_points,3))
 			colorized = fcolor(colorized,result)
 			result = colorized
 
 		else:
+			print(" fitting to color depth...")
 			#Scale up to 0-depth. What should be black is now depth.
 			result *= depth
 			#Invert so that black is 0 and white is depth.
@@ -204,7 +206,7 @@ if(__name__ == "__main__"):
 	
 		#Convert to uints for imageio.
 		result = result.astype(np.uint8)
-		
+		print(" mirroring...")
 		#Adds a flipped copy of the image to the top.
 		result = np.concatenate((np.flip(result,axis=0),result))
 
@@ -214,6 +216,8 @@ if(__name__ == "__main__"):
 		print("Writing image...")
 		time = get_timer()
 		#Write image to file.
-		imageio.imwrite(path+pathdelim+"mandelbrot_"+str(iters)+"_iterations"+colorname+eval_type+image_file_ext,result)
+		imageio.imwrite(path+pathdelim+"mandelbrot_"+str(iters)+"_iterations"+colorname+eval_type+blurname+image_file_ext,result)
 		time = get_timer() - time
 		print("Done in "+str(time)[:4]+" seconds.")
+		
+		print("Total time consumption: "+str(get_timer() - total_time)[:4]+" seconds.")
