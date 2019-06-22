@@ -5,11 +5,13 @@ import imageio
 import os
 import mandelfortran
 import time
+import cv2
 
 #Color depth.
 depth = 255
 
-#The highest allowed number of iterations. #Set to 255 (color depth) if uing the scaled algorithm and colorize.
+#The highest allowed number of iterations.
+#Set to color depth if uing the scaled algorithm and colorize.
 iters = depth
 
 #Sets the aspect ratio of the image.
@@ -20,7 +22,7 @@ start = -2.7-1.333j
 end = 1.3+1.333j
 
 #Number of points per axis to compute.
-im_eval_points = 10000 #y-axis. Must be even.
+im_eval_points = 1000 #y-axis. Must be even.
 re_eval_points = int(aspect_ratio*im_eval_points) #x-axis
 
 #Compute it multithreaded.
@@ -34,7 +36,9 @@ fortran_omp = True
 saveimage = True
 
 #Make a pass of gaussian blur.
-blur = False #Blurring requires allocating two extra images in memory, just as large as the main one. The image can therefore not be as big with this option turned on.
+blur = False #Blurring requires allocating two extra images in memory,
+#just as large as the main one.
+#The image can therefore not be as big with this option turned on.
 radius = 1 #the radius of the gaussian blur. 1 is probably optimal.
 
 #Make the image in color. Only relevant if saveimage is True.
@@ -47,7 +51,12 @@ colorize = True
 saveresult = False
 
 #What file type to save the image as.
-image_file_ext = ".png"
+image_file_ext = ".bmp"
+#Trials at im_eval_points = 10000, aspect_ratio = 3/2:
+#png: 182 seconds to encode an 18.2 MB image.
+#jpg: 54 seconds to encode a 3.8 MB image.
+#ppm: 45.3 seconds to encode a 450 MB image.
+#bmp: 47.5 seconds to encode a 450 MB image.
 
 #What file type to save the raw data as. If it ends in .gz it will be compressed.
 data_file_ext = ".dat.gz"
@@ -81,6 +90,9 @@ if(not fortran_omp):
 
 if(__name__ == "__main__"):
 
+	#Multiplatform clock
+	get_time = time.perf_counter if sys.platform == "win32" else time.time
+	
 	total_time = get_time()
 
 	if(not saveresult and not saveimage):
@@ -92,8 +104,6 @@ if(__name__ == "__main__"):
 	#Determines whether to use \ or / for file paths.
 	pathdelim = "\\" if sys.platform == "win32" else "/"
 
-	#Multiplatform clock
-	get_time = time.perf_counter if sys.platform == "win32" else time.time
 	
 
 	colorname = "_color" if colorize else "_bw"
@@ -241,4 +251,6 @@ if(__name__ == "__main__"):
 		time = get_time() - time
 		print("Done in "+str(time)[:4]+" seconds.")
 		
+		result = None
+
 		print("Total time consumption: "+str(get_time() - total_time)[:4]+" seconds.")
