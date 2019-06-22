@@ -3,10 +3,7 @@ import multiprocessing as mp
 import sys
 import imageio
 import os
-from mandelfortran import *
-#from mandelfortran import mandel_calc
-#from mandelfortran import mandel_calc_array
-#from mandelfortran import colorize as fcolor
+import mandelfortran
 import time
 
 #Color depth.
@@ -84,6 +81,8 @@ if(not fortran_omp):
 
 if(__name__ == "__main__"):
 
+	total_time = get_time()
+
 	if(not saveresult and not saveimage):
 		print("Note: program will produce no output.")
 
@@ -96,7 +95,6 @@ if(__name__ == "__main__"):
 	#Multiplatform clock
 	get_time = time.perf_counter if sys.platform == "win32" else time.time
 	
-	total_time = get_time()
 
 	colorname = "_color" if colorize else "_bw"
 
@@ -144,7 +142,7 @@ if(__name__ == "__main__"):
 		if(fortran_omp):
 			print("Computing...")
 			time = get_time()
-			grid = mandel_calc_array_scaled(grid,iters,depth)
+			grid = mandelfortran.mandel_calc_array_scaled(grid,iters,depth)
 			result = grid
 			time = get_time() - time
 			print("Done in "+str(time)[:4]+" seconds.")			
@@ -177,15 +175,11 @@ if(__name__ == "__main__"):
 		print("Done in "+str(time)[:4]+" seconds.")
 	
 
-	print("Extracting result and freeing memory...")
-	time = get_time()
 	grid = None #Removes the grid of complex values from memory.
 	
 	#Extract the real part of the output of the fortran subroutine.
-	#No information is lost since it only wirites a real part.
+	#No information is lost since it only writes to the real part.
 	result = np.real(result)
-	time = get_time() - time
-	print("Done in "+str(time)[:4]+" seconds.")
 
 	if(saveresult):
 		print("Writing raw data...")
@@ -204,7 +198,7 @@ if(__name__ == "__main__"):
 		if(blur):
 			print(" blurring...")
 			blurred = np.zeros(np.shape(result))
-			blurred = fastgauss(result,radius)
+			blurred = mandelfortran.fastgauss(result,radius)
 			result = blurred
 			blurred = None
 
@@ -218,13 +212,13 @@ if(__name__ == "__main__"):
 		if(colorize):
 			print(" colouring...")
 			colourized = np.zeros((np.concatenate((np.shape(result),np.array([3])))),order='F')
-			colourized = fcolour(depth,colourized,np.real(result))
+			colourized = mandelfortran.fcolour(depth,colourized,np.real(result))
 			result = colourized
 			colourized = None
 
 		else:
 			print(" fitting to color depth...")
-			#Scale up to 0-depth. What should be black is now depth.
+			#Scale up to 0-depth.
 			result *= depth
 
 			#Invert so that black is 0 and white is depth.
