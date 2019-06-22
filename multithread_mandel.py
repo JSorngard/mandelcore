@@ -9,18 +9,21 @@ from mandelfortran import *
 #from mandelfortran import colorize as fcolor
 import time
 
-#The highest allowed number of iterations.
-iters = 100
+#Color depth.
+depth = 255
+
+#The highest allowed number of iterations. #Set to 255 (color depth) if uing the scaled algorithm and colorize.
+iters = depth
 
 #Sets the aspect ratio of the image.
 aspect_ratio = 3./2.
 
-#Defines the "window" to look at the fractal in. Make sure to match the apect ratio.
+#Defines the "window" to look at the fractal in. Make sure to match the aspect ratio.
 start = -2.7-1.333j
 end = 1.3+1.333j
 
 #Number of points per axis to compute.
-im_eval_points = 15000 #y-axis. Must be even.
+im_eval_points = 1000 #y-axis. Must be even.
 re_eval_points = int(aspect_ratio*im_eval_points) #x-axis
 
 #Compute it multithreaded.
@@ -34,11 +37,11 @@ fortran_omp = True
 saveimage = True
 
 #Make a pass of gaussian blur.
-blur = False #Blurring requires allocating an extra image in memory, just as large as the main one. The image can therefore not be as big with this option turned on.
+blur = False #Blurring requires allocating two extra images in memory, just as large as the main one. The image can therefore not be as big with this option turned on.
 radius = 1 #the radius of the gaussian blur. 1 is probably optimal.
 
 #Make the image in color. Only relevant if saveimage is True.
-colorize = False #This option requires the allocation of an extra image in memory, three times as large as the main one. The image must therefore be much smaller with this option turned on.
+colorize = True #This option requires the allocation of an extra image in memory, three times as large as the main one. The image must therefore be much smaller with this option turned on.
 
 #Save the resulting iteration grid to file
 saveresult = False
@@ -49,31 +52,31 @@ image_file_ext = ".png"
 #What file type to save the raw data as. If it ends in .gz it will be compressed.
 data_file_ext = ".dat.gz"
 
-#Color depth.
-depth = 255
-
 #Print extra information about memory use.
 memory_debug = False
 
-def mandel_func(c,maxiterations=iters):
+
+def mandel_func(c,maxiterations=iters,colordepth=float(depth)):
 	"""Takes a complex number and iterates the mandelbrot function on it until either its magnitude is larger than six (2 gives worse colour fade), or it has iterated enough."""
 	x = np.real(c)
 	y = np.imag(c)
 	y2 = y**2.
 	#q=(x-.25)**2. + y2
-	mag2=x**2 + y2
+	mag2=x**2. + y2
 
 	#Filter out all points inside the main bulb and the period-2 bulb.
 	if((x + 1.)**2 + y2 < 0.0625 or mag2*(8.*mag2-3.) <= .09375 - x):
-		return maxiterations
+		return 0.
 
-	z = 0+0j
+	z = 0.+0.j
 	iterations=0
 	while(np.real(z)**2. + np.imag(z)**2. <= 36. and iterations < maxiterations):
 		iterations += 1
 		z = z**2. + c
+	return (2+(maxiterations-iterations-2.)-4.*np.abs(z)**(-.4))/colordepth if iterations != maxiterations else 0.
 
-	return iterations
+def mandel_helper(cs,maxiterations=iters):
+	return [mandel_func(c,iters) for c in cs]
 
 if(__name__ == "__main__"):
 
@@ -87,9 +90,9 @@ if(__name__ == "__main__"):
 	pathdelim = "\\" if sys.platform == "win32" else "/"
 
 	#Multiplatform clock
-	get_timer = time.perf_counter if sys.platform == "win32" else time.time
+	get_time = time.perf_counter if sys.platform == "win32" else time.time
 	
-	total_time = get_timer()
+	total_time = get_time()
 
 	colorname = "_color" if colorize else "_bw"
 
@@ -102,12 +105,18 @@ if(__name__ == "__main__"):
 		print("Number of imaginary points must be even.")
 		exit()
 
+	print("Generating grid...")
+	time = get_time()
+
 	re_points= np.linspace(np.real(start),np.real(end),re_eval_points)
 	im_points= np.linspace(0,np.imag(end),im_eval_points)
 
 	re_grid,im_grid = np.meshgrid(re_points,im_points*1j,sparse=True)
 
 	grid = re_grid + im_grid
+
+	time = get_time() - time
+	print("Done in "+str(time)[:4]+" seconds.")
 	
 	if(memory_debug):		
 		gridshape = np.shape(grid)
@@ -130,26 +139,26 @@ if(__name__ == "__main__"):
 
 		if(fortran_omp):
 			print("Computing...")
-			time = get_timer()
-			grid = mandel_calc_array(grid,iters)
+			time = get_time()
+			grid = mandel_calc_array_scaled(grid,iters,depth)
 			result = grid
-			time = get_timer() - time
+			time = get_time() - time
 			print("Done in "+str(time)[:4]+" seconds.")			
 
 		else:
 			#Create a pool with the number of threads equal to the number of processor cores.
 			print("Creating thread pool...")
-			time = get_timer()
+			time = get_time()
 			pool = mp.Pool(processes=cores)
 			#Warm up the pool
 			pool.map(mandel_helper,np.ones((10,cores)))
-			time = get_timer() - time
+			time = get_time() - time
 			print("Done in "+str(time)[:5]+" seconds.")
 
 			print("Computing...")
-			time = get_timer()
+			time = get_time()
 			result = pool.map(mandel_helper,grid)
-			time = get_timer() - time
+			time = get_time() - time
 			print("Done in "+str(time)[:4]+" seconds.")
 
 	else:
@@ -158,51 +167,61 @@ if(__name__ == "__main__"):
 		mandel_vector = np.vectorize(mandel_func)
 
 		print("Computing...")
-		time = get_timer()
+		time = get_time()
 		result = mandel_vector(grid,iters)
-		time = get_timer() - time
+		time = get_time() - time
 		print("Done in "+str(time)[:4]+" seconds.")
+	
+
+	print("Extracting real part of result...")
+	time = get_time()
+	#Extract the real part of the output of the fortran subroutine.
+	#No information is lost since it only wirites a real part.
+	result = np.real(result)
+	time = get_time() - time
+	print("Done in "+str(time)[:4]+" seconds.")
 
 	if(saveresult):
 		print("Writing raw data...")
 		if(data_file_ext[-3:] == ".gz"):
 			print(" compressing...")
-		time = get_timer()
+		time = get_time()
 		#Write image to file. If the file name ends in .gz numpy automatically compresses it.
 		np.savetxt(path+pathdelim+"mandel"+colorname+eval_type+data_file_ext,result,delimiter=' ')
-		time = get_timer() - time
+		time = get_time() - time
 		print("Done in "+str(time)[:4]+" seconds.")
 
 	if(saveimage):
 		print("Performing image manipulations...")
-		time = get_timer()
+		time = get_time()
 		
 		if(blur):
 			print(" blurring...")
 			blurred = np.zeros(np.shape(result))
-			blurred = fastgauss(np.real(result),radius)
+			blurred = fastgauss(result,radius)
 			result = blurred
 
 		#Normalize result to 0-1
 		
-		print(" normalizing...")
-		result = np.array(result)/float(iters)
+		#print(" normalizing...")
+		#result = np.array(result)/float(iters)
 		
 		
 
 		if(colorize):
 			print(" colouring...")
-			colorized = np.zeros((im_eval_points,re_eval_points,3))
-			colorized = fcolor(colorized,result)
-			result = colorized
+			colourized = np.zeros((np.concatenate((np.shape(result),np.array([3])))),order='F')
+			colourized = fcolour(depth,colourized,np.real(result))
+			result = colourized
 
 		else:
 			print(" fitting to color depth...")
 			#Scale up to 0-depth. What should be black is now depth.
 			result *= depth
+
 			#Invert so that black is 0 and white is depth.
-			result -= depth 
-			result = np.abs(result) 
+			#result -= depth 
+			#result = np.abs(result) 
 	
 		#Convert to uints for imageio.
 		result = result.astype(np.uint8)
@@ -210,14 +229,14 @@ if(__name__ == "__main__"):
 		#Adds a flipped copy of the image to the top.
 		result = np.concatenate((np.flip(result,axis=0),result))
 
-		time = get_timer() - time
+		time = get_time() - time
 		print("Done in "+str(time)[:4]+" seconds.")
 
 		print("Writing image...")
-		time = get_timer()
+		time = get_time()
 		#Write image to file.
 		imageio.imwrite(path+pathdelim+"mandelbrot_"+str(iters)+"_iterations"+colorname+eval_type+blurname+image_file_ext,result)
-		time = get_timer() - time
+		time = get_time() - time
 		print("Done in "+str(time)[:4]+" seconds.")
 		
-		print("Total time consumption: "+str(get_timer() - total_time)[:4]+" seconds.")
+		print("Total time consumption: "+str(get_time() - total_time)[:4]+" seconds.")
