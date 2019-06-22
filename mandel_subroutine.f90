@@ -166,9 +166,9 @@ do l=1,m
     do k=1,n
         T=iters(k,l)
         !call get_colour(image(k,l,:),iters(k,l),depth)
-        image(k,l,3) = (T * 80.d0) + ((T**9.d0) * depth) - (950.d0 * (T**99.d0))
-        image(k,l,2) = (T * 70.d0) - (880.d0 * (T**18.d0)) + (701.d0 * (T**9.d0))
         image(k,l,1) = T * (depth**(1.d0 - (T**45.d0) * 2.d0))
+        image(k,l,2) = (T * 70.d0) - (880.d0 * (T**18.d0)) + (701.d0 * (T**9.d0))
+        image(k,l,3) = (T * 80.d0) + ((T**9.d0) * depth) - (950.d0 * (T**99.d0))
     end do
 end do
 !$OMP END PARALLEL DO
@@ -184,9 +184,9 @@ real*8,intent(in) :: scaled_iters
 integer,intent(in) :: depth
 real*8,dimension(3),intent(out) :: rgb
 
-rgb(1) = (scaled_iters * 80.d0) + ((scaled_iters**9.d0) * depth) - (950.d0 * (scaled_iters**99.d0))
+rgb(1) = scaled_iters * (depth**(1.d0 - (scaled_iters**45.d0) * 2.d0))
 rgb(2) = (scaled_iters * 70.d0) - (880.d0 * (scaled_iters**18.d0)) + (701.d0 * (scaled_iters**9.d0))
-rgb(3) = scaled_iters * (depth**(1.d0 - (scaled_iters**45.d0) * 2.d0))
+rgb(3) = (scaled_iters * 80.d0) + ((scaled_iters**9.d0) * depth) - (950.d0 * (scaled_iters**99.d0))
 
 end subroutine get_colour
 

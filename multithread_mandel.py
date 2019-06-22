@@ -23,14 +23,14 @@ start = -2.7-1.333j
 end = 1.3+1.333j
 
 #Number of points per axis to compute.
-im_eval_points = 1000 #y-axis. Must be even.
+im_eval_points = 10000 #y-axis. Must be even.
 re_eval_points = int(aspect_ratio*im_eval_points) #x-axis
 
 #Compute it multithreaded.
 multicore = True
 
 #The method of parallelization.
-#If true it will be openmp in fortran, otherwise multiprocessing in python.
+#If true it will be openmp in Fortran, otherwise multiprocessing in python. Fortran is ~100 times faster.
 fortran_omp = True
 
 #Save the result as an image.
@@ -41,7 +41,10 @@ blur = False #Blurring requires allocating two extra images in memory, just as l
 radius = 1 #the radius of the gaussian blur. 1 is probably optimal.
 
 #Make the image in color. Only relevant if saveimage is True.
-colorize = True #This option requires the allocation of an extra image in memory, three times as large as the main one. The image must therefore be much smaller with this option turned on.
+colorize = True
+#This option requires the allocation of an extra image in memory,
+#three times as large as the main one.
+#The image must therefore be much smaller with this option turned on.
 
 #Save the resulting iteration grid to file
 saveresult = False
@@ -56,27 +59,28 @@ data_file_ext = ".dat.gz"
 memory_debug = False
 
 
-def mandel_func(c,maxiterations=iters,colordepth=float(depth)):
-	"""Takes a complex number and iterates the mandelbrot function on it until either its magnitude is larger than six (2 gives worse colour fade), or it has iterated enough."""
-	x = np.real(c)
-	y = np.imag(c)
-	y2 = y**2.
-	#q=(x-.25)**2. + y2
-	mag2=x**2. + y2
+if(not fortran_omp):
+	def mandel_func(c,maxiterations=iters,colordepth=float(depth)):
+		"""Takes a complex number and iterates the mandelbrot function on it until either its magnitude is larger than six (2 gives worse colour fade), or it has iterated enough."""
+		x = np.real(c)
+		y = np.imag(c)
+		y2 = y**2.
+		#q=(x-.25)**2. + y2
+		mag2=x**2. + y2
 
-	#Filter out all points inside the main bulb and the period-2 bulb.
-	if((x + 1.)**2 + y2 < 0.0625 or mag2*(8.*mag2-3.) <= .09375 - x):
-		return 0.
+		#Filter out all points inside the main bulb and the period-2 bulb.
+		if((x + 1.)**2 + y2 < 0.0625 or mag2*(8.*mag2-3.) <= .09375 - x):
+			return 0.
 
-	z = 0.+0.j
-	iterations=0
-	while(np.real(z)**2. + np.imag(z)**2. <= 36. and iterations < maxiterations):
-		iterations += 1
-		z = z**2. + c
-	return (2+(maxiterations-iterations-2.)-4.*np.abs(z)**(-.4))/colordepth if iterations != maxiterations else 0.
+		z = 0.+0.j
+		iterations=0
+		while(np.real(z)**2. + np.imag(z)**2. <= 36. and iterations < maxiterations):
+			iterations += 1
+			z = z**2. + c
+		return (2+(maxiterations-iterations-2.)-4.*np.abs(z)**(-.4))/colordepth if iterations != maxiterations else 0.
 
-def mandel_helper(cs,maxiterations=iters):
-	return [mandel_func(c,iters) for c in cs]
+	def mandel_helper(cs,maxiterations=iters):
+		return [mandel_func(c,iters) for c in cs]
 
 if(__name__ == "__main__"):
 
@@ -173,8 +177,10 @@ if(__name__ == "__main__"):
 		print("Done in "+str(time)[:4]+" seconds.")
 	
 
-	print("Extracting real part of result...")
+	print("Extracting result and freeing memory...")
 	time = get_time()
+	grid = None #Removes the grid of complex values from memory.
+	
 	#Extract the real part of the output of the fortran subroutine.
 	#No information is lost since it only wirites a real part.
 	result = np.real(result)
@@ -200,6 +206,7 @@ if(__name__ == "__main__"):
 			blurred = np.zeros(np.shape(result))
 			blurred = fastgauss(result,radius)
 			result = blurred
+			blurred = None
 
 		#Normalize result to 0-1
 		
@@ -213,6 +220,7 @@ if(__name__ == "__main__"):
 			colourized = np.zeros((np.concatenate((np.shape(result),np.array([3])))),order='F')
 			colourized = fcolour(depth,colourized,np.real(result))
 			result = colourized
+			colourized = None
 
 		else:
 			print(" fitting to color depth...")
