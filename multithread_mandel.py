@@ -21,7 +21,7 @@ start = -2.7-1.333j
 end = 1.3+1.333j
 
 #Number of points per axis to compute.
-im_eval_points = 15000 #y-axis. Must be even.
+im_eval_points = 20000 #y-axis. Must be even.
 re_eval_points = int(aspect_ratio*im_eval_points) #x-axis
 
 #Compute it multithreaded.
@@ -46,12 +46,12 @@ ssaa = True
 ssfactor = 3 #The computation will run slower by a factor of this number squared.
 
 #Make the image in color. Only relevant if saveimage is True.
-colorize = True
+colorize = False
 #This option requires the allocation of an extra image in memory,
 #three times as large as the main one.
 #The image must therefore be much smaller with this option turned on.
 
-#Raises the result of the mandebrot iterations to this number.
+#Raises the result of the mandelbrot iterations to this number.
 gamma = 1.
 
 #Save the resulting iteration grid to file
@@ -134,7 +134,17 @@ if(__name__ == "__main__"):
 
 	re_grid,im_grid = np.meshgrid(re_points,im_points*1j,sparse=True)
 
-	grid = re_grid + im_grid
+	try:
+		grid = re_grid + im_grid
+	except MemoryError:
+		print("Out of memory when allocating grid.")
+		grid = None
+		re_points = None
+		im_points = None
+		exit()
+
+	re_points = None
+	im_points = None
 
 	time = get_time() - time
 	print("Done in "+str(time)[:4]+" seconds.")
@@ -160,14 +170,19 @@ if(__name__ == "__main__"):
 
 		if(fortran_omp):
 			time = get_time()
-			if(ssaa):
-				ssaaname = "_supersampled"
-				print("Computing supersampled...")
-				grid = mandelfortran.mandel_calc_array_scaled_supersampled(grid,iters,depth,ssfactor,deltar,deltai)
-			else:
-				ssaaname = ""
-				print("Computing...")
-				grid = mandelfortran.mandel_calc_array_scaled(grid,iters,depth)
+			try:
+				if(ssaa):
+					ssaaname = "_supersampled"
+					print("Computing supersampled...")
+					grid = mandelfortran.mandel_calc_array_scaled_supersampled(grid,iters,depth,ssfactor,deltar,deltai)
+				else:
+					ssaaname = ""
+					print("Computing...")
+					grid = mandelfortran.mandel_calc_array_scaled(grid,iters,depth)
+			except MemoryError:
+				print("Out of memory when sending work to Fortran.")
+				grid = None
+				exit()
 			result = grid
 			time = get_time() - time
 			print("Done in "+str(time)[:4]+" seconds.")			
@@ -227,16 +242,30 @@ if(__name__ == "__main__"):
 
 		if(blur):
 			print(" blurring...")
-			blurred = np.zeros(np.shape(result))
-			blurred = mandelfortran.fastgauss(result,radius)
-			result = blurred
+			try:
+				blurred = np.zeros(np.shape(result))
+				blurred = mandelfortran.fastgauss(result,radius)
+				result = blurred
+			except MemoryError:
+				print("Out of memory when blurring the image.")
+				result = None
+				blurred = None
+				exit()
+
 			blurred = None
 
 		if(colorize):
 			print(" colouring...")
-			colourized = np.zeros((np.concatenate((np.shape(result),np.array([3])))),order='F')
-			colourized = mandelfortran.fcolour(depth,colourized,np.real(result))
-			result = colourized
+			try:
+				colourized = np.zeros((np.concatenate((np.shape(result),np.array([3])))),order='F')
+				colourized = mandelfortran.fcolour(depth,colourized,np.real(result))
+				result = colourized
+			except MemoryError:
+				print("Out of memory when colouring the image.")
+				colourized = None
+				result = None
+				exit()
+
 			colourized = None
 		else:
 			print(" fitting to color depth...")
@@ -251,7 +280,12 @@ if(__name__ == "__main__"):
 		result = result.astype(np.uint8)
 		print(" mirroring...")
 		#Adds a flipped copy of the image to the top.
-		result = np.concatenate((np.flip(result,axis=0),result))
+		try:
+			result = np.concatenate((np.flip(result,axis=0),result))
+		except MemoryError:
+			print("Out of memory when mirroring image.")
+			result = None
+			exit()
 
 		time = get_time() - time
 		print("Done in "+str(time)[:4]+" seconds.")
