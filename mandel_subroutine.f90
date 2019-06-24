@@ -150,6 +150,41 @@ end do
 !$OMP END PARALLEL DO
 end subroutine mandel_calc_array_scaled
 
+subroutine mandel_calc_array_scaled_supersampled(grid,maxiters,depth,samplingfactor,deltar,deltai,n,m)
+!Same as mandel_calc_array_scaled, but samples every pixel in many
+!different places.
+use omp_lib
+implicit none
+integer,intent(in) :: n,m,maxiters,depth,samplingfactor
+real*8,intent(in) :: deltar,deltai
+complex*16,intent(inout),dimension(n,m) :: grid
+!f2py intent(in,out) :: grid
+
+real*8 :: mandel_calc_scaled,total,coloffset,rowoffset,esc,invfactor
+integer :: i,j,k
+
+invfactor = 1.d0/real(samplingfactor,kind=8)
+
+!$OMP PARALLEL DO shared(grid) private(total,esc,coloffset,rowoffset)
+do j=1,m
+    do i=1,n
+        total = 0.d0
+        do k=1,samplingfactor**2
+            !Computes offsets. These should range from -1/samplingfactor
+            !to 1/samplingfactor with a 0 included if samplingfator is odd.
+            coloffset = (real(mod(k,samplingfactor),kind=8)-1.d0)*invfactor
+            rowoffset = (real((k-1)/samplingfactor,kind=8)-1.d0)*invfactor
+            esc = mandel_calc_scaled(dble(grid(i,j))+rowoffset*deltar,imag(grid(i,j))+coloffset*deltai,maxiters,depth)
+            total = total + esc**2.d0
+        end do
+        grid(i,j) = total/real(samplingfactor**2,kind=8)
+    end do
+end do
+!$OMP END PARALLEL DO
+
+
+end subroutine mandel_calc_array_scaled_supersampled
+
 subroutine fcolour(depth,image,iters,n,m)
 use omp_lib
 implicit none

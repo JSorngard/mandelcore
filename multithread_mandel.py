@@ -5,7 +5,6 @@ import imageio
 import os
 import mandelfortran
 import time
-import cv2
 
 #Color depth.
 depth = 255
@@ -22,7 +21,7 @@ start = -2.7-1.333j
 end = 1.3+1.333j
 
 #Number of points per axis to compute.
-im_eval_points = 1000 #y-axis. Must be even.
+im_eval_points = 15000 #y-axis. Must be even.
 re_eval_points = int(aspect_ratio*im_eval_points) #x-axis
 
 #Compute it multithreaded.
@@ -41,22 +40,30 @@ blur = False #Blurring requires allocating two extra images in memory,
 #The image can therefore not be as big with this option turned on.
 radius = 1 #the radius of the gaussian blur. 1 is probably optimal.
 
+#Compute each pixel multiple times in different locations to smooth jaggies.
+ssaa = True
+#The number of sampled points along each dimension for each pixel.
+ssfactor = 3 #The computation will run slower by a factor of this number squared.
+
 #Make the image in color. Only relevant if saveimage is True.
 colorize = True
 #This option requires the allocation of an extra image in memory,
 #three times as large as the main one.
 #The image must therefore be much smaller with this option turned on.
 
+#Raises the result of the mandebrot iterations to this number.
+gamma = 1.
+
 #Save the resulting iteration grid to file
 saveresult = False
 
 #What file type to save the image as.
-image_file_ext = ".bmp"
+image_file_ext = ".png"
 #Trials at im_eval_points = 10000, aspect_ratio = 3/2:
-#png: 182 seconds to encode an 18.2 MB image.
-#jpg: 54 seconds to encode a 3.8 MB image.
-#ppm: 45.3 seconds to encode a 450 MB image.
-#bmp: 47.5 seconds to encode a 450 MB image.
+#png: 182 seconds to encode an 18.2 MB image. Lossless compression.
+#jpg: 54 seconds to encode a 3.8 MB image. Lossy compression.
+#bmp: 47.5 seconds to encode a 450 MB image. No compression.
+#ppm: 45.3 seconds to encode a 450 MB image. No compression.
 
 #What file type to save the raw data as. If it ends in .gz it will be compressed.
 data_file_ext = ".dat.gz"
@@ -121,7 +128,9 @@ if(__name__ == "__main__"):
 	time = get_time()
 
 	re_points= np.linspace(np.real(start),np.real(end),re_eval_points)
+	deltar = re_points[1] - re_points[0]
 	im_points= np.linspace(0,np.imag(end),im_eval_points)
+	deltai = im_points[1] - im_points[0]
 
 	re_grid,im_grid = np.meshgrid(re_points,im_points*1j,sparse=True)
 
@@ -150,9 +159,15 @@ if(__name__ == "__main__"):
 		eval_type = "_multicore"
 
 		if(fortran_omp):
-			print("Computing...")
 			time = get_time()
-			grid = mandelfortran.mandel_calc_array_scaled(grid,iters,depth)
+			if(ssaa):
+				ssaaname = "_supersampled"
+				print("Computing supersampled...")
+				grid = mandelfortran.mandel_calc_array_scaled_supersampled(grid,iters,depth,ssfactor,deltar,deltai)
+			else:
+				ssaaname = ""
+				print("Computing...")
+				grid = mandelfortran.mandel_calc_array_scaled(grid,iters,depth)
 			result = grid
 			time = get_time() - time
 			print("Done in "+str(time)[:4]+" seconds.")			
@@ -191,6 +206,7 @@ if(__name__ == "__main__"):
 	#No information is lost since it only writes to the real part.
 	result = np.real(result)
 
+
 	if(saveresult):
 		print("Writing raw data...")
 		if(data_file_ext[-3:] == ".gz"):
@@ -205,6 +221,10 @@ if(__name__ == "__main__"):
 		print("Performing image manipulations...")
 		time = get_time()
 		
+		if(gamma != 1.):
+			print("changing gamma...")
+			result = result**gamma
+
 		if(blur):
 			print(" blurring...")
 			blurred = np.zeros(np.shape(result))
@@ -212,20 +232,12 @@ if(__name__ == "__main__"):
 			result = blurred
 			blurred = None
 
-		#Normalize result to 0-1
-		
-		#print(" normalizing...")
-		#result = np.array(result)/float(iters)
-		
-		
-
 		if(colorize):
 			print(" colouring...")
 			colourized = np.zeros((np.concatenate((np.shape(result),np.array([3])))),order='F')
 			colourized = mandelfortran.fcolour(depth,colourized,np.real(result))
 			result = colourized
 			colourized = None
-
 		else:
 			print(" fitting to color depth...")
 			#Scale up to 0-depth.
@@ -247,7 +259,7 @@ if(__name__ == "__main__"):
 		print("Writing image...")
 		time = get_time()
 		#Write image to file.
-		imageio.imwrite(path+pathdelim+"mandelbrot_"+str(iters)+"_iterations"+colorname+eval_type+blurname+image_file_ext,result)
+		imageio.imwrite(path+pathdelim+"mandelbrot_"+str(iters)+"_iterations"+colorname+ssaaname+eval_type+blurname+image_file_ext,result)
 		time = get_time() - time
 		print("Done in "+str(time)[:4]+" seconds.")
 		
