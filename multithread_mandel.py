@@ -21,7 +21,7 @@ start = -2.7-1.333j
 end = 1.3+1.333j
 
 #Number of points per axis to compute.
-im_eval_points = 20000 #y-axis. Must be even.
+im_eval_points = 15000 #y-axis. Must be even.
 re_eval_points = int(aspect_ratio*im_eval_points) #x-axis
 
 #Compute it multithreaded.
@@ -46,13 +46,13 @@ ssaa = True
 ssfactor = 3 #The computation will run slower by a factor of this number squared.
 
 #Make the image in color. Only relevant if saveimage is True.
-colorize = False
+colorize = True
 #This option requires the allocation of an extra image in memory,
 #three times as large as the main one.
 #The image must therefore be much smaller with this option turned on.
 
 #Raises the result of the mandelbrot iterations to this number.
-gamma = 1.
+gamma = .5
 
 #Save the resulting iteration grid to file
 saveresult = False
@@ -172,7 +172,7 @@ if(__name__ == "__main__"):
 			time = get_time()
 			try:
 				if(ssaa):
-					ssaaname = "_supersampled"
+					ssaaname = "_ssaa"
 					print("Computing supersampled...")
 					grid = mandelfortran.mandel_calc_array_scaled_supersampled(grid,iters,depth,ssfactor,deltar,deltai)
 				else:
@@ -237,7 +237,7 @@ if(__name__ == "__main__"):
 		time = get_time()
 		
 		if(gamma != 1.):
-			print("changing gamma...")
+			print(" changing gamma...")
 			result = result**gamma
 
 		if(blur):
@@ -293,7 +293,7 @@ if(__name__ == "__main__"):
 		print("Writing image...")
 		time = get_time()
 		#Write image to file.
-		imageio.imwrite(path+pathdelim+"mandelbrot_"+str(iters)+"_iterations"+colorname+ssaaname+eval_type+blurname+image_file_ext,result)
+		imageio.imwrite(path+pathdelim+"mandelbrot_"+str(iters)+"_iters"+colorname+ssaaname+eval_type+blurname+image_file_ext,result)
 		time = get_time() - time
 		print("Done in "+str(time)[:4]+" seconds.")
 		
