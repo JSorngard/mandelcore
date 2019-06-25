@@ -196,10 +196,15 @@ real*8,dimension(n,m,3),intent(inout) :: image
 integer :: k,l
 real*8 :: T
 
-!$OMP PARALLEL DO shared(image,iters)
+!$OMP PARALLEL DO shared(image,iters) private(T)
 do l=1,m
     do k=1,n
         T=iters(k,l)
+
+        !Maybe this is faster?
+        if(T == 0.d0) then
+            image(k,l,:) = 0.d0
+        end if
         !call get_colour(image(k,l,:),iters(k,l),depth)
         image(k,l,1) = T * (depth**(1.d0 - (T**45.d0) * 2.d0))
         image(k,l,2) = (T * 70.d0) - (880.d0 * (T**18.d0)) + (701.d0 * (T**9.d0))
@@ -225,8 +230,30 @@ rgb(3) = (scaled_iters * 80.d0) + ((scaled_iters**9.d0) * depth) - (950.d0 * (sc
 
 end subroutine get_colour
 
-!The below routines are based on fasticonv by Sebastian Beyer at https://github.com/sebastianbeyer/fasticonv but modified to work with static memory and openmp.
+subroutine change_gamma(image,gamma,n,m)
+implicit none
+integer,intent(in) :: n,m
+real*8,dimension(n,m),intent(inout) :: image
+!f2py intent(in,out) :: image
+real*8,intent(in) :: gamma
+integer :: i,j
 
+!If gamma=1 we don't need to do anything.
+if(gamma == 1.d0) then
+    return
+end if
+
+!$OMP PARALLEL DO shared(image)
+do j=1,m
+    do i=1,n
+        image(n,m) = image(n,m)**gamma
+    end do
+end do
+!$OMP END PARALLEL DO
+
+end subroutine change_gamma
+
+!The below routines are based on fasticonv by Sebastian Beyer at https://github.com/sebastianbeyer/fasticonv but modified to work with static memory and openmp.
 subroutine naiveGauss (source, filtered, r, nx, ny)
     use omp_lib
     implicit none

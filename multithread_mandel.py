@@ -52,7 +52,7 @@ colorize = True
 #The image must therefore be much smaller with this option turned on.
 
 #Raises the result of the mandelbrot iterations to this number.
-gamma = .5
+gamma = .75
 
 #Save the resulting iteration grid to file
 saveresult = False
@@ -238,7 +238,17 @@ if(__name__ == "__main__"):
 		
 		if(gamma != 1.):
 			print(" changing gamma...")
-			result = result**gamma
+			#If the image is large enough we compute it multithreaded.
+			#Don't do this. Does not finish.
+			#if(im_eval_points > 5000):
+			#	result = mandelfortran.change_gamma(result,gamma)
+			#else:
+			try:
+				result = result**gamma
+			except MemoryError:
+				print("Out of memory when changing gamma.")
+				result = None
+				exit()
 
 		if(blur):
 			print(" blurring...")
@@ -299,4 +309,4 @@ if(__name__ == "__main__"):
 		
 		result = None
 
-		print("Total time consumption: "+str(get_time() - total_time)[:4]+" seconds.")
+		print("Total time consumption: "+str(get_time() - total_time)[:5]+" seconds.")
