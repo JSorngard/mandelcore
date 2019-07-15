@@ -230,28 +230,32 @@ rgb(3) = (scaled_iters * 80.d0) + ((scaled_iters**9.d0) * depth) - (950.d0 * (sc
 
 end subroutine get_colour
 
-subroutine change_gamma(image,gamma,n,m)
+subroutine multicore_pow(array,exponent,n,m)
+!Returns the input array with every element raised to the power of exponent.
+!Computes this in multiple threads, so this should only be used on large arrays.
+!This subroutine is MUCH slower than numpy.
 implicit none
 integer,intent(in) :: n,m
-real*8,dimension(n,m),intent(inout) :: image
-!f2py intent(in,out) :: image
-real*8,intent(in) :: gamma
+real*8,dimension(n,m),intent(inout) :: array
+!f2py intent(in,out) :: array
+real*8,intent(in) :: exponent
 integer :: i,j
 
-!If gamma=1 we don't need to do anything.
-if(gamma == 1.d0) then
+!If exponent=1 we don't need to do anything.
+if(exponent == 1.d0) then
     return
 end if
 
-!$OMP PARALLEL DO shared(image)
+!$OMP PARALLEL DO shared(array)
 do j=1,m
+    write(*,*) j
     do i=1,n
-        image(n,m) = image(n,m)**gamma
+        array(n,m) = array(n,m)**exponent
     end do
 end do
 !$OMP END PARALLEL DO
 
-end subroutine change_gamma
+end subroutine multicore_pow
 
 !The below routines are based on fasticonv by Sebastian Beyer at https://github.com/sebastianbeyer/fasticonv but modified to work with static memory and openmp.
 subroutine naiveGauss (source, filtered, r, nx, ny)

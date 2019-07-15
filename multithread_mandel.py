@@ -21,7 +21,7 @@ start = -2.7-1.333j
 end = 1.3+1.333j
 
 #Number of points per axis to compute.
-im_eval_points = 15000 #y-axis. Must be even.
+im_eval_points = 12000 #y-axis. Must be even.
 re_eval_points = int(aspect_ratio*im_eval_points) #x-axis
 
 #Compute it multithreaded.
@@ -241,10 +241,10 @@ if(__name__ == "__main__"):
 			#If the image is large enough we compute it multithreaded.
 			#Don't do this. Does not finish.
 			#if(im_eval_points > 5000):
-			#	result = mandelfortran.change_gamma(result,gamma)
+			#	result = mandelfortran.multicore_pow(result,gamma)
 			#else:
 			try:
-				result = result**gamma
+		 		result = np.power(result,gamma)
 			except MemoryError:
 				print("Out of memory when changing gamma.")
 				result = None
