@@ -1,10 +1,15 @@
 import numpy as np
 import multiprocessing as mp
 import sys
-import imageio
 import os
 import mandelfortran
 import time
+try:
+	import imageio
+	has_imageio = True
+except ImportError:
+	from PIL import Image
+	has_imageio = False
 
 #Color depth.
 depth = 255
@@ -21,7 +26,7 @@ start = -2.7-1.333j
 end = 1.3+1.333j
 
 #Number of points per axis to compute.
-im_eval_points = 12000 #y-axis. Must be even.
+im_eval_points = 25000 #y-axis. Must be even.
 re_eval_points = int(aspect_ratio*im_eval_points) #x-axis
 
 #Compute it multithreaded.
@@ -69,8 +74,7 @@ image_file_ext = ".png"
 data_file_ext = ".dat.gz"
 
 #Print extra information about memory use.
-memory_debug = False
-
+memory_debug = True
 
 if(not fortran_omp):
 	def mandel_func(c,maxiterations=iters,colordepth=float(depth)):
@@ -153,15 +157,15 @@ if(__name__ == "__main__"):
 		gridshape = np.shape(grid)
 		elements = gridshape[0]*gridshape[1]
 		cmplxsize = sys.getsizeof(1+1j)
-		cmplxnparraysize = sys.getsizeof(np.array(1+1j))
-		cmplxnparray10size = sys.getsizeof((1+1j)*np.ones(1,dtype=complex))
+		#cmplxnparraysize = sys.getsizeof(np.array(1+1j))
+		#cmplxnparray10size = sys.getsizeof((1+1j)*np.ones(1,dtype=complex))
 
-		print("Size of a complex number: "+str(cmplxsize)+" B.")
-		print("Size of a numpy array with a complex number: "+str(cmplxnparraysize)+" B.")
-		print("Size of a numpy array with 10 complex numbers: "+str(cmplxnparray10size)+" B.")
+		#print("Size of a complex number: "+str(cmplxsize)+" B.")
+		#print("Size of a numpy array with a complex number: "+str(cmplxnparraysize)+" B.")
+		#print("Size of a numpy array with 10 complex numbers: "+str(cmplxnparray10size)+" B.")
 		print("Elements in grid: "+str(elements)+".")
-		print("Grid 'should' take up roughly "+str(elements*cmplxsize/1000000)+" MB.")
-		print("Size of grid: "+str(sys.getsizeof(grid)/1e6)+" MB.")
+		print("Grid should take up roughly "+str(elements*cmplxsize/1000000)+" MB.")
+		#print("Size of grid: "+str(sys.getsizeof(grid)/1e6)+" MB.")
 
 	if(multicore):
 		cores = mp.cpu_count()
@@ -286,12 +290,21 @@ if(__name__ == "__main__"):
 			#result -= depth 
 			#result = np.abs(result) 
 	
-		#Convert to uints for imageio.
+		#Convert to uints for image saving.
 		result = result.astype(np.uint8)
+
 		print(" mirroring...")
 		#Adds a flipped copy of the image to the top.
 		try:
 			result = np.concatenate((np.flip(result,axis=0),result))
+		except AttributeError:
+			print("  numpy is not updated. Attempting to mirror in an alternative way...")
+			try:
+				result = np.concatenate((result[::-1],result))
+			except MemoryError:
+				print("Out of memory when mirroring image.")
+				result = None
+				exit()	
 		except MemoryError:
 			print("Out of memory when mirroring image.")
 			result = None
@@ -302,8 +315,17 @@ if(__name__ == "__main__"):
 
 		print("Writing image...")
 		time = get_time()
+		filename = path+pathdelim+"mandelbrot_"+str(iters)+"_iters"+colorname+ssaaname+eval_type+blurname+image_file_ext
 		#Write image to file.
-		imageio.imwrite(path+pathdelim+"mandelbrot_"+str(iters)+"_iters"+colorname+ssaaname+eval_type+blurname+image_file_ext,result)
+		if(has_imageio):
+			print(" using imageio...")
+			imageio.imwrite(filename,result)
+		else:
+			print(" using PIL...")
+			print("  converting to image object...")
+			result = Image.fromarray(result)
+			print("  saving...")
+			result.save(filename)
 		time = get_time() - time
 		print("Done in "+str(time)[:4]+" seconds.")
 		
