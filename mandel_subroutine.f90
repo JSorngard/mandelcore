@@ -153,6 +153,15 @@ end subroutine mandel_calc_array_scaled
 subroutine mandel_calc_array_scaled_supersampled(grid,maxiters,depth,samplingfactor,deltar,deltai,n,m)
 !Same as mandel_calc_array_scaled, but samples every pixel in many
 !different places.
+!grid: an array containing the number to be iterated.
+!on exit contains the result of the iteration.
+!maxiters: the maximum number of iterations.
+!depth: the colour depth that will be used when colouring the image.
+!samplingfactor: the number of points that will be samplex along each axis.
+!if samplingfactor is 3 a total of 9 points will be sampled.
+!deltar: the distance between two pixels along the real axis.
+!deltai: the distance between two pixels along the imaginary axis.
+!n,m: the dimensions of grid. If using f2py you should not need to specify these.
 use omp_lib
 implicit none
 integer,intent(in) :: n,m,maxiters,depth,samplingfactor

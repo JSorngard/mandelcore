@@ -1,6 +1,10 @@
 subroutine fcolour(depth,image,iters,n,m)
 !Returns an array of RGB triplets given an array of results
 !from the scaled algorithms in mandel_subroutine.f90.
+!depth: the colour depth of the image.
+!This should have been used during the computation.
+!iters: an array of containing the result from the mandelbrot iterations.
+!image: on exit will contain an array of RGB triplets.
 use omp_lib
 implicit none
 integer,intent(in) :: n,m
@@ -34,6 +38,7 @@ end subroutine fcolour
 subroutine get_colour(rgb,scaled_iters,depth)
 !Returns an rgb triplet given the result of the
 !mandel_calc_scaled function and the colour depth.
+!I can not get it to cooperate well with OpenMP with the knowledge I have.
 implicit none
 real*8,intent(in) :: scaled_iters
 integer,intent(in) :: depth
