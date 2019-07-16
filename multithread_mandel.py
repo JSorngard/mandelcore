@@ -3,6 +3,7 @@ import multiprocessing as mp
 import sys
 import os
 import mandelfortran
+import imagefortran
 import time
 try:
 	import imageio
@@ -26,7 +27,7 @@ start = -2.7-1.333j
 end = 1.3+1.333j
 
 #Number of points per axis to compute.
-im_eval_points = 21250 #y-axis. Must be an even integer.
+im_eval_points = 10000 #y-axis. Must be an even integer.
 re_eval_points = int(aspect_ratio*im_eval_points) #x-axis
 
 #Compute it multithreaded.
@@ -177,7 +178,7 @@ if(__name__ == "__main__"):
 			time = get_time()
 			try:
 				if(ssaa):
-					ssaaname = "_ssaa"
+					ssaaname = "_ssaax"+str(ssfactor**2)
 					print("Computing with SSAAx"+str(ssfactor**2)+"...")
 					grid = mandelfortran.mandel_calc_array_scaled_supersampled(grid,iters,depth,ssfactor,deltar,deltai)
 				else:
@@ -261,7 +262,7 @@ if(__name__ == "__main__"):
 			print(" blurring...")
 			try:
 				blurred = np.zeros(np.shape(result))
-				blurred = mandelfortran.fastgauss(result,radius)
+				blurred = imagefortran.fastgauss(result,radius)
 				result = blurred
 			except MemoryError:
 				print("Out of memory when blurring the image.")
@@ -275,7 +276,7 @@ if(__name__ == "__main__"):
 			print(" colouring...")
 			try:
 				colourized = np.zeros((np.concatenate((np.shape(result),np.array([3])))),order='F')
-				colourized = mandelfortran.fcolour(depth,colourized,np.real(result))
+				colourized = imagefortran.fcolour(depth,colourized,np.real(result))
 				result = colourized
 			except MemoryError:
 				print("Out of memory when colouring the image.")
