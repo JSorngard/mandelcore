@@ -5,6 +5,7 @@ import os
 import mandelfortran
 import imagefortran
 import time
+#This is probably poor form. But now it runs on a computer where I don't have the priviliges to use pip!
 try:
 	import imageio
 	has_imageio = True
@@ -16,7 +17,7 @@ except ImportError:
 depth = 255 #Integer. Set to 255 if using colorize.
 
 #The highest allowed number of iterations.
-#Set to color depth if uing the scaled algorithm and colorize.
+#Set to color depth if using the scaled algorithm and colorize.
 iters = depth #Integer
 
 #Sets the aspect ratio of the image.
@@ -28,7 +29,7 @@ end = 1.3+1.333j
 
 #Number of points per axis to compute.
 im_eval_points = 10000 #y-axis. Must be an even integer.
-re_eval_points = int(aspect_ratio*im_eval_points) #x-axis
+re_eval_points = int(aspect_ratio*im_eval_points) #x-axis.
 
 #Compute it multithreaded.
 multicore = True
@@ -42,6 +43,7 @@ fortran_omp = True
 saveimage = True
 
 #Make a pass of gaussian blur.
+#I managed to get SSAA working, so there's very little reason to do this.
 blur = False #Blurring requires allocating two extra images in memory,
 #just as large as the main one.
 #The image can therefore not be as big with this option turned on.
@@ -59,7 +61,12 @@ colorize = True
 #The image must therefore be much smaller with this option turned on.
 
 #Raises the result of the mandelbrot iterations to this number.
-gamma = .75
+gamma = .75 #Closer to 0 means a darker image.
+#I take no artistic responsibillity for numbers larger than 1.
+#Due to how coloring works too low gamma will result in weirdness.
+#0.5 works, 0.4 does not. 0.75 looks nice.
+#This isn't really a normal gamma value, it just pretends that points
+#escaped later or earlier than they did and colours the image after that.
 
 #Save the resulting iteration grid to file
 saveresult = False
@@ -67,16 +74,20 @@ saveresult = False
 #What file type to save the image as.
 image_file_ext = ".png"
 #Trials at im_eval_points = 10000, aspect_ratio = 3/2:
-#png: 182 seconds to encode an 18.2 MB image. Lossless compression.
-#jpg: 54 seconds to encode a 3.8 MB image. Lossy compression.
 #bmp: 47.5 seconds to encode a 450 MB image. No compression.
-#ppm: 45.3 seconds to encode a 450 MB image. No compression.
+#jpg: 54 seconds to encode a 3.8 MB image. Lossy compression.
+#png: 182 seconds to encode an 18.2 MB image. Lossless compression.
+#Only relative numbers are probably useful:
+#bmp: 1 to encode a size 1 image.
+#jpg: 1.14 to encode a size 0.008 lossy image.
+#png: 3.83 to encode a size 0.040 lossless image.
 
 #What file type to save the raw data as. If it ends in .gz it will be compressed.
 data_file_ext = ".dat.gz"
 
 #Print extra information about memory use.
 memory_debug = True
+#Set to False to print one fewer lines. Hooray!
 
 if(not fortran_omp):
 	def mandel_func(c,maxiterations=iters,colordepth=float(depth)):
@@ -166,7 +177,7 @@ if(__name__ == "__main__"):
 		#print("Size of a numpy array with a complex number: "+str(cmplxnparraysize)+" B.")
 		#print("Size of a numpy array with 10 complex numbers: "+str(cmplxnparray10size)+" B.")
 		#print("Elements in grid: "+str(elements)+".")
-		print("Grid should take up roughly "+str(elements*cmplxsize/1000000)+" MB.")
+		print("Grid should take up roughly "+str(elements*cmplxsize/1e6)+" MB in RAM.")
 		#print("Size of grid: "+str(sys.getsizeof(grid)/1e6)+" MB.")
 
 	if(multicore):
@@ -233,7 +244,8 @@ if(__name__ == "__main__"):
 		if(data_file_ext[-3:] == ".gz"):
 			print(" compressing...")
 		time = get_time()
-		#Write image to file. If the file name ends in .gz numpy automatically compresses it.
+		#Write iteration data to file. If the file name ends in .gz numpy automatically compresses it.
+		#Maybe in the future I'll be able to use this data to make an image.
 		np.savetxt(path+pathdelim+"mandel"+colorname+eval_type+data_file_ext,result,delimiter=' ')
 		time = get_time() - time
 		print("Done in "+str(time)[:4]+" seconds.")
@@ -247,7 +259,7 @@ if(__name__ == "__main__"):
 			gammaname = "_g="+str(gamma)[:4]
 			print(" changing gamma...")
 			#If the image is large enough we compute it multithreaded.
-			#Don't do this. Does not finish.
+			#Don't do this. WAY slower than np.power. Gotta love vectorization.
 			#if(im_eval_points > 5000):
 			#	result = mandelfortran.multicore_pow(result,gamma)
 			#else:
