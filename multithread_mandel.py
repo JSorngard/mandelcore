@@ -12,11 +12,11 @@ except ImportError:
 	has_imageio = False
 
 #Color depth.
-depth = 255
+depth = 255 #Integer. Set to 255 if using colorize.
 
 #The highest allowed number of iterations.
 #Set to color depth if uing the scaled algorithm and colorize.
-iters = depth
+iters = depth #Integer
 
 #Sets the aspect ratio of the image.
 aspect_ratio = 3./2.
@@ -26,14 +26,15 @@ start = -2.7-1.333j
 end = 1.3+1.333j
 
 #Number of points per axis to compute.
-im_eval_points = 25000 #y-axis. Must be even.
+im_eval_points = 21250 #y-axis. Must be an even integer.
 re_eval_points = int(aspect_ratio*im_eval_points) #x-axis
 
 #Compute it multithreaded.
 multicore = True
 
 #The method of parallelization.
-#If true it will be openmp in Fortran, otherwise multiprocessing in python. Fortran is ~100 times faster.
+#If true it will be openmp in Fortran, otherwise multiprocessing in python.
+#Fortran is ~100 times faster.
 fortran_omp = True
 
 #Save the result as an image.
@@ -43,12 +44,12 @@ saveimage = True
 blur = False #Blurring requires allocating two extra images in memory,
 #just as large as the main one.
 #The image can therefore not be as big with this option turned on.
-radius = 1 #the radius of the gaussian blur. 1 is probably optimal.
+radius = 1 #Integer. The radius of the gaussian blur.
 
 #Compute each pixel multiple times in different locations to smooth jaggies.
 ssaa = True
 #The number of sampled points along each dimension for each pixel.
-ssfactor = 3 #The computation will run slower by a factor of this number squared.
+ssfactor = 5 #Integer. The computation will run slower by a factor of this number squared.
 
 #Make the image in color. Only relevant if saveimage is True.
 colorize = True
@@ -128,7 +129,7 @@ if(__name__ == "__main__"):
 		print("Number of imaginary points must be even.")
 		exit()
 
-	print("Generating grid...")
+	print("Generating "+str(re_eval_points)+" by "+str(im_eval_points)+" grid...")
 	time = get_time()
 
 	re_points= np.linspace(np.real(start),np.real(end),re_eval_points)
@@ -163,7 +164,7 @@ if(__name__ == "__main__"):
 		#print("Size of a complex number: "+str(cmplxsize)+" B.")
 		#print("Size of a numpy array with a complex number: "+str(cmplxnparraysize)+" B.")
 		#print("Size of a numpy array with 10 complex numbers: "+str(cmplxnparray10size)+" B.")
-		print("Elements in grid: "+str(elements)+".")
+		#print("Elements in grid: "+str(elements)+".")
 		print("Grid should take up roughly "+str(elements*cmplxsize/1000000)+" MB.")
 		#print("Size of grid: "+str(sys.getsizeof(grid)/1e6)+" MB.")
 
@@ -177,7 +178,7 @@ if(__name__ == "__main__"):
 			try:
 				if(ssaa):
 					ssaaname = "_ssaa"
-					print("Computing supersampled...")
+					print("Computing with SSAAx"+str(ssfactor**2)+"...")
 					grid = mandelfortran.mandel_calc_array_scaled_supersampled(grid,iters,depth,ssfactor,deltar,deltai)
 				else:
 					ssaaname = ""
@@ -240,7 +241,9 @@ if(__name__ == "__main__"):
 		print("Performing image manipulations...")
 		time = get_time()
 		
+		gammaname = ""
 		if(gamma != 1.):
+			gammaname = "_g="+str(gamma)[:4]
 			print(" changing gamma...")
 			#If the image is large enough we compute it multithreaded.
 			#Don't do this. Does not finish.
@@ -298,7 +301,6 @@ if(__name__ == "__main__"):
 		try:
 			result = np.concatenate((np.flip(result,axis=0),result))
 		except AttributeError:
-			print("  numpy is not updated. Attempting to mirror in an alternative way...")
 			try:
 				result = np.concatenate((result[::-1],result))
 			except MemoryError:
@@ -315,7 +317,7 @@ if(__name__ == "__main__"):
 
 		print("Writing image...")
 		time = get_time()
-		filename = path+pathdelim+"mandelbrot_"+str(iters)+"_iters"+colorname+ssaaname+eval_type+blurname+image_file_ext
+		filename = path+pathdelim+"mandelbrot_"+str(iters)+"_iters"+colorname+ssaaname+eval_type+blurname+gammaname+image_file_ext
 		#Write image to file.
 		if(has_imageio):
 			print(" using imageio...")
@@ -323,9 +325,16 @@ if(__name__ == "__main__"):
 		else:
 			print(" using PIL...")
 			print("  converting to image object...")
-			result = Image.fromarray(result)
+			try:
+				result = Image.fromarray(result)
+			except OverflowError:
+				print("The image array is too large for PIL to handle. Try installing imageio.")
+				result = None
+				exit()
+
 			print("  saving...")
-			result.save(filename)
+			result.save(filename,optimize=True,quality=85)
+
 		time = get_time() - time
 		print("Done in "+str(time)[:4]+" seconds.")
 		
