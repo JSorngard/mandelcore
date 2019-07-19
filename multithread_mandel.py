@@ -5,6 +5,7 @@ import os
 import mandelfortran
 import imagefortran
 import time
+import argparse
 #This is probably poor form. But now it runs on a computer where I don't have the priviliges to use pip!
 try:
 	import imageio
@@ -12,6 +13,8 @@ try:
 except ImportError:
 	from PIL import Image
 	has_imageio = False
+
+parser = argparse.ArgumentParser(description="Computes and saves an image of the mandelbrot set.")
 
 #Color depth.
 depth = 255 #Integer. Set to 255 if using colorize.
@@ -28,7 +31,7 @@ start = -2.7-1.333j
 end = 1.3+1.333j
 
 #Number of points per axis to compute.
-im_eval_points = 10000 #y-axis. Must be an even integer.
+im_eval_points = 1080 #y-axis. Must be an even integer.
 re_eval_points = int(aspect_ratio*im_eval_points) #x-axis.
 
 #Compute it multithreaded.
@@ -88,6 +91,22 @@ data_file_ext = ".dat.gz"
 #Print extra information about memory use.
 memory_debug = True
 #Set to False to print one fewer lines. Hooray!
+
+parser.add_argument("-y","--yresolution",required=False,type=int,default=im_eval_points,help="Specify the y-axis resolution of the image. Defaults to "+str(im_eval_points)+".")
+#parser.add_argument("-x","--xresolution",required=False,type=int,default=int(im_eval_points*aspect_ratio),help="Specify the x-axis resolution of the image. Defaults to "+str(int(im_eval_points*aspect_ratio))+".")
+parser.add_argument("-g","--gamma",required=False,type=float,default=gamma,help="Raises the output of the mandelbrot iterations to this number. Works as a gamma between 0.4 and 1.")
+parser.add_argument("--ssaafactor",required=False,type=int,default=ssfactor,help="Supersample each pixel this many times squared. Defaults to "+str(ssfactor)+".")
+parser.add_argument("--filextension",required=False,default=image_file_ext,help="Set the file extrension of the generated image. Defaults to "+image_file_ext[1:]+".")
+parser.add_argument("--saveresult",required=False,action="store_true",help="Use this argument if you want to save the results of the mandelbrot iterations to a "+data_file_ext+" file.")
+
+args=vars(parser.parse_args())
+
+im_eval_points = args["yresolution"]
+re_eval_points = int(aspect_ratio*im_eval_points)
+gamma = args["gamma"]
+ssfactor = args["ssaafactor"]
+image_file_ext = args["filextension"]
+saveresult = args["saveresult"]
 
 if(not fortran_omp):
 	def mandel_func(c,maxiterations=iters,colordepth=float(depth)):
@@ -330,7 +349,7 @@ if(__name__ == "__main__"):
 
 		print("Writing image...")
 		time = get_time()
-		filename = path+pathdelim+"mandelbrot_"+str(iters)+"_iters"+colorname+ssaaname+eval_type+blurname+gammaname+image_file_ext
+		filename = path+pathdelim+"mandelbrot_"+str(iters)+"_iters"+colorname+ssaaname+eval_type+blurname+gammaname
 		#Write image to file.
 		if(has_imageio):
 			print(" using imageio...")
@@ -339,14 +358,29 @@ if(__name__ == "__main__"):
 			print(" using PIL...")
 			print("  converting to image object...")
 			try:
+				#result2 = None
 				result = Image.fromarray(result)
 			except OverflowError:
-				print("The image array is too large for PIL to handle. Try installing imageio.")
+				print("  The image array is too large for PIL to handle. Try installing imageio.")
 				result = None
 				exit()
+				#print("  Trying to save as two separate images to glue together later.")
+				#halfway = int(re_eval_points/2)
+				#result2 = result[:halfway]
+				#result = result[halfway:]
+
+				#print("  converting first image...")
+				#result = Image.fromarray(result)
+				#print("  converting second image...")
+				#result2 = Image.fromarray(result2)
+
 
 			print("  saving...")
-			result.save(filename,optimize=True,quality=85)
+			result.save(filename+image_file_ext,optimize=True,quality=85)
+			
+			#if(result2 != None):
+			#	print("   saving second image...")
+			#	result.save(filename+"_2"+image_file_ext,optimize=True,quality=85)
 
 		time = get_time() - time
 		print("Done in "+str(time)[:4]+" seconds.")
