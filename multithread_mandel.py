@@ -14,7 +14,8 @@ except ImportError:
 	from PIL import Image
 	has_imageio = False
 
-parser = argparse.ArgumentParser(description="Computes and saves an image of the mandelbrot set.")
+
+#DEFAULT SETTINGS:
 
 #Color depth.
 depth = 255 #Integer. Set to 255 if using colorize.
@@ -31,7 +32,7 @@ start = -2.7-1.333j
 end = 1.3+1.333j
 
 #Number of points per axis to compute.
-im_eval_points = 1080 #y-axis. Must be an even integer.
+im_eval_points = 5400 #y-axis. Must be an even integer.
 re_eval_points = int(aspect_ratio*im_eval_points) #x-axis.
 
 #Compute it multithreaded.
@@ -90,8 +91,9 @@ data_file_ext = ".dat.gz"
 
 #Print extra information about memory use.
 memory_debug = True
-#Set to False to print one fewer lines. Hooray!
+#Set to False to print one less line. Hooray!
 
+parser = argparse.ArgumentParser(description="Computes and saves an image of the mandelbrot set.")
 parser.add_argument("-y","--yresolution",required=False,type=int,default=im_eval_points,help="Specify the y-axis resolution of the image. Defaults to "+str(im_eval_points)+".")
 #parser.add_argument("-x","--xresolution",required=False,type=int,default=int(im_eval_points*aspect_ratio),help="Specify the x-axis resolution of the image. Defaults to "+str(int(im_eval_points*aspect_ratio))+".")
 parser.add_argument("-g","--gamma",required=False,type=float,default=gamma,help="Raises the output of the mandelbrot iterations to this number. Works as a gamma between 0.4 and 1.")
@@ -353,7 +355,7 @@ if(__name__ == "__main__"):
 		#Write image to file.
 		if(has_imageio):
 			print(" using imageio...")
-			imageio.imwrite(filename,result)
+			imageio.imwrite(filename+image_file_ext,result)
 		else:
 			print(" using PIL...")
 			print("  converting to image object...")
