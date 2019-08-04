@@ -32,7 +32,7 @@ start = -2.7-1.333j
 end = 1.3+1.333j
 
 #Number of points per axis to compute.
-im_eval_points = 5400 #y-axis. Must be an even integer.
+im_eval_points = 1000 #y-axis. Must be an even integer.
 re_eval_points = int(aspect_ratio*im_eval_points) #x-axis.
 
 #Compute it multithreaded.
@@ -134,228 +134,208 @@ if(not fortran_omp):
 		return [mandel_func(c,iters) for c in cs]
 
 if(__name__ == "__main__"):
-
 	#Multiplatform clock
 	get_time = time.perf_counter if sys.platform == "win32" else time.time
-	
-	total_time = get_time()
-
-	if(not saveresult and not saveimage):
-		print("Note: program will produce no output.")
 
 	#Determines the working directory of the program.
 	path = os.path.dirname(os.path.abspath(__file__))
-
-	#Determines whether to use \ or / for file paths.
-	pathdelim = "\\" if sys.platform == "win32" else "/"
-
 	
+	total_time = get_time()
 
-	colorname = "_color" if colorize else "_bw"
+	def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug):
 
-	blurname = "_blur="+str(radius) if blur else ""
 
-	#Only compute half the points along the imaginary axis since there is a reflection symmetry.
-	if(np.mod(im_eval_points,2)==0):
-		im_eval_points = int(im_eval_points/2)
-	else:
-		print("Number of imaginary points must be even.")
-		exit()
+		if(not saveresult and not saveimage):
+			print("Note: program will produce no output.")
 
-	print("Generating "+str(re_eval_points)+" by "+str(im_eval_points)+" grid...")
-	time = get_time()
+		#Only compute half the points along the imaginary axis since there is a reflection symmetry.
+		if(np.mod(im_eval_points,2)==0):
+			im_eval_points = int(im_eval_points/2)
+		else:
+			print("Number of imaginary points must be even.")
+			exit()
 
-	re_points= np.linspace(np.real(start),np.real(end),re_eval_points)
-	deltar = re_points[1] - re_points[0]
-	im_points= np.linspace(0,np.imag(end),im_eval_points)
-	deltai = im_points[1] - im_points[0]
+		print("Generating "+str(re_eval_points)+" by "+str(im_eval_points)+" grid...")
+		time = get_time()
 
-	re_grid,im_grid = np.meshgrid(re_points,im_points*1j,sparse=True)
+		re_points= np.linspace(np.real(start),np.real(end),re_eval_points)
+		deltar = re_points[1] - re_points[0]
+		im_points= np.linspace(0,np.imag(end),im_eval_points)
+		deltai = im_points[1] - im_points[0]
 
-	try:
-		grid = re_grid + im_grid
-	except MemoryError:
-		print("Out of memory when allocating grid.")
-		grid = None
+		re_grid,im_grid = np.meshgrid(re_points,im_points*1j,sparse=True)
+
+		try:
+			grid = re_grid + im_grid
+		except MemoryError:
+			print("Out of memory when allocating grid.")
+			grid = None
+			re_points = None
+			im_points = None
+			exit()
+
 		re_points = None
 		im_points = None
-		exit()
 
-	re_points = None
-	im_points = None
+		time = get_time() - time
+		print("Done in "+str(time)[:4]+" seconds.")
+		
+		if(memory_debug):		
+			gridshape = np.shape(grid)
+			elements = gridshape[0]*gridshape[1]
+			cmplxsize = sys.getsizeof(1+1j)
+			#cmplxnparraysize = sys.getsizeof(np.array(1+1j))
+			#cmplxnparray10size = sys.getsizeof((1+1j)*np.ones(1,dtype=complex))
 
-	time = get_time() - time
-	print("Done in "+str(time)[:4]+" seconds.")
-	
-	if(memory_debug):		
-		gridshape = np.shape(grid)
-		elements = gridshape[0]*gridshape[1]
-		cmplxsize = sys.getsizeof(1+1j)
-		#cmplxnparraysize = sys.getsizeof(np.array(1+1j))
-		#cmplxnparray10size = sys.getsizeof((1+1j)*np.ones(1,dtype=complex))
+			#print("Size of a complex number: "+str(cmplxsize)+" B.")
+			#print("Size of a numpy array with a complex number: "+str(cmplxnparraysize)+" B.")
+			#print("Size of a numpy array with 10 complex numbers: "+str(cmplxnparray10size)+" B.")
+			#print("Elements in grid: "+str(elements)+".")
+			print("Grid should take up roughly "+str(elements*cmplxsize/1e6)+" MB in RAM.")
+			#print("Size of grid: "+str(sys.getsizeof(grid)/1e6)+" MB.")
 
-		#print("Size of a complex number: "+str(cmplxsize)+" B.")
-		#print("Size of a numpy array with a complex number: "+str(cmplxnparraysize)+" B.")
-		#print("Size of a numpy array with 10 complex numbers: "+str(cmplxnparray10size)+" B.")
-		#print("Elements in grid: "+str(elements)+".")
-		print("Grid should take up roughly "+str(elements*cmplxsize/1e6)+" MB in RAM.")
-		#print("Size of grid: "+str(sys.getsizeof(grid)/1e6)+" MB.")
+		if(multicore):
+			cores = mp.cpu_count()
+			print("Attempting to evaluate on "+str(cores)+" cores...")
 
-	if(multicore):
-		cores = mp.cpu_count()
-		print("Attempting to evaluate on "+str(cores)+" cores...")
-		eval_type = "_multicore"
+			if(fortran_omp):
+				time = get_time()
+				try:
+					if(ssaa):						
+						print("Computing with SSAAx"+str(ssfactor**2)+"...")
+						grid = mandelfortran.mandel_calc_array_scaled_supersampled(grid,iters,depth,ssfactor,deltar,deltai)
+					else:
+						print("Computing...")
+						grid = mandelfortran.mandel_calc_array_scaled(grid,iters,depth)
+				except MemoryError:
+					print("Out of memory when sending work to Fortran.")
+					grid = None
+					exit()
+				result = grid
+				time = get_time() - time
+				print("Done in "+str(time)[:4]+" seconds.")			
 
-		if(fortran_omp):
-			time = get_time()
-			try:
-				if(ssaa):
-					ssaaname = "_ssaax"+str(ssfactor**2)
-					print("Computing with SSAAx"+str(ssfactor**2)+"...")
-					grid = mandelfortran.mandel_calc_array_scaled_supersampled(grid,iters,depth,ssfactor,deltar,deltai)
-				else:
-					ssaaname = ""
-					print("Computing...")
-					grid = mandelfortran.mandel_calc_array_scaled(grid,iters,depth)
-			except MemoryError:
-				print("Out of memory when sending work to Fortran.")
-				grid = None
-				exit()
-			result = grid
-			time = get_time() - time
-			print("Done in "+str(time)[:4]+" seconds.")			
+			else:
+				#Create a pool with the number of threads equal to the number of processor cores.
+				print("Creating thread pool...")
+				time = get_time()
+				pool = mp.Pool(processes=cores)
+				#Warm up the pool
+				pool.map(mandel_helper,np.ones((10,cores)))
+				time = get_time() - time
+				print("Done in "+str(time)[:5]+" seconds.")
+
+				print("Computing...")
+				time = get_time()
+				result = pool.map(mandel_helper,grid)
+				time = get_time() - time
+				print("Done in "+str(time)[:4]+" seconds.")
 
 		else:
-			#Create a pool with the number of threads equal to the number of processor cores.
-			print("Creating thread pool...")
-			time = get_time()
-			pool = mp.Pool(processes=cores)
-			#Warm up the pool
-			pool.map(mandel_helper,np.ones((10,cores)))
-			time = get_time() - time
-			print("Done in "+str(time)[:5]+" seconds.")
+			print("Evaluating on a single core...")
+			eval_type = "_singlecore"
+			mandel_vector = np.vectorize(mandel_func)
 
 			print("Computing...")
 			time = get_time()
-			result = pool.map(mandel_helper,grid)
+			result = mandel_vector(grid,iters)
 			time = get_time() - time
 			print("Done in "+str(time)[:4]+" seconds.")
-
-	else:
-		print("Evaluating on a single core...")
-		eval_type = "_singlecore"
-		mandel_vector = np.vectorize(mandel_func)
-
-		print("Computing...")
-		time = get_time()
-		result = mandel_vector(grid,iters)
-		time = get_time() - time
-		print("Done in "+str(time)[:4]+" seconds.")
-	
-
-	grid = None #Removes the grid of complex values from memory.
-	
-	#Extract the real part of the output of the fortran subroutine.
-	#No information is lost since it only writes to the real part.
-	result = np.real(result)
-
-
-	if(saveresult):
-		print("Writing raw data...")
-		if(data_file_ext[-3:] == ".gz"):
-			print(" compressing...")
-		time = get_time()
-		#Write iteration data to file. If the file name ends in .gz numpy automatically compresses it.
-		#Maybe in the future I'll be able to use this data to make an image.
-		np.savetxt(path+pathdelim+"mandel"+colorname+eval_type+data_file_ext,result,delimiter=' ')
-		time = get_time() - time
-		print("Done in "+str(time)[:4]+" seconds.")
-
-	if(saveimage):
-		print("Performing image manipulations...")
-		time = get_time()
 		
-		gammaname = ""
-		if(gamma != 1.):
-			gammaname = "_g="+str(gamma)[:4]
-			print(" changing gamma...")
-			#If the image is large enough we compute it multithreaded.
-			#Don't do this. WAY slower than np.power. Gotta love vectorization.
-			#if(im_eval_points > 5000):
-			#	result = mandelfortran.multicore_pow(result,gamma)
-			#else:
-			try:
-		 		result = np.power(result,gamma)
-			except MemoryError:
-				print("Out of memory when changing gamma.")
-				result = None
-				exit()
 
-		if(blur):
-			print(" blurring...")
-			try:
-				blurred = np.zeros(np.shape(result))
-				blurred = imagefortran.fastgauss(result,radius)
-				result = blurred
-			except MemoryError:
-				print("Out of memory when blurring the image.")
-				result = None
+		grid = None #Removes the grid of complex values from memory.
+		
+		#Extract the real part of the output of the fortran subroutine.
+		#No information is lost since it only writes to the real part.
+		result = np.real(result)
+
+		if(saveimage):
+			print("Performing image manipulations...")
+			time = get_time()
+			
+			gammaname = ""
+			if(gamma != 1.):
+				print(" changing gamma...")
+				#If the image is large enough we compute it multithreaded.
+				#Don't do this. WAY slower than np.power. Gotta love vectorization.
+				#if(im_eval_points > 5000):
+				#	result = mandelfortran.multicore_pow(result,gamma)
+				#else:
+				try:
+			 		result = np.power(result,gamma)
+				except MemoryError:
+					print("Out of memory when changing gamma.")
+					result = None
+					exit()
+
+			if(blur):
+				print(" blurring...")
+				try:
+					blurred = np.zeros(np.shape(result))
+					blurred = imagefortran.fastgauss(result,radius)
+					result = blurred
+				except MemoryError:
+					print("Out of memory when blurring the image.")
+					result = None
+					blurred = None
+					exit()
+
 				blurred = None
-				exit()
 
-			blurred = None
+			if(colorize):
+				print(" colouring...")
+				try:
+					colourized = np.zeros((np.concatenate((np.shape(result),np.array([3])))),order='F')
+					colourized = imagefortran.fcolour(depth,colourized,np.real(result))
+					result = colourized
+				except MemoryError:
+					print("Out of memory when colouring the image.")
+					colourized = None
+					result = None
+					exit()
 
-		if(colorize):
-			print(" colouring...")
-			try:
-				colourized = np.zeros((np.concatenate((np.shape(result),np.array([3])))),order='F')
-				colourized = imagefortran.fcolour(depth,colourized,np.real(result))
-				result = colourized
-			except MemoryError:
-				print("Out of memory when colouring the image.")
 				colourized = None
-				result = None
-				exit()
+			else:
+				print(" fitting to color depth...")
+				#Scale up to 0-depth.
+				result *= depth
 
-			colourized = None
-		else:
-			print(" fitting to color depth...")
-			#Scale up to 0-depth.
-			result *= depth
+				#Invert so that black is 0 and white is depth.
+				#result -= depth 
+				#result = np.abs(result) 
+		
+			#Convert to uints for image saving.
+			result = result.astype(np.uint8)
 
-			#Invert so that black is 0 and white is depth.
-			#result -= depth 
-			#result = np.abs(result) 
-	
-		#Convert to uints for image saving.
-		result = result.astype(np.uint8)
-
-		print(" mirroring...")
-		#Adds a flipped copy of the image to the top.
-		try:
-			result = np.concatenate((np.flip(result,axis=0),result))
-		except AttributeError:
+			print(" mirroring...")
+			#Adds a flipped copy of the image to the top.
 			try:
-				result = np.concatenate((result[::-1],result))
+				result = np.concatenate((np.flip(result,axis=0),result))
+			except AttributeError:
+				try:
+					result = np.concatenate((result[::-1],result))
+				except MemoryError:
+					print("Out of memory when mirroring image.")
+					result = None
+					exit()	
 			except MemoryError:
 				print("Out of memory when mirroring image.")
 				result = None
-				exit()	
-		except MemoryError:
-			print("Out of memory when mirroring image.")
-			result = None
-			exit()
+				exit()
 
-		time = get_time() - time
-		print("Done in "+str(time)[:4]+" seconds.")
+			time = get_time() - time
+			print("Done in "+str(time)[:4]+" seconds.")
 
+		return result
+	
+	def write_image(fullname,result):
 		print("Writing image...")
 		time = get_time()
-		filename = path+pathdelim+"mandelbrot_"+str(iters)+"_iters"+colorname+ssaaname+eval_type+blurname+gammaname
+
 		#Write image to file.
 		if(has_imageio):
 			print(" using imageio...")
-			imageio.imwrite(filename+image_file_ext,result)
+			imageio.imwrite(fullname,result)
 		else:
 			print(" using PIL...")
 			print("  converting to image object...")
@@ -378,7 +358,7 @@ if(__name__ == "__main__"):
 
 
 			print("  saving...")
-			result.save(filename+image_file_ext,optimize=True,quality=85)
+			result.save(fullname,optimize=True,quality=85)
 			
 			#if(result2 != None):
 			#	print("   saving second image...")
@@ -386,7 +366,41 @@ if(__name__ == "__main__"):
 
 		time = get_time() - time
 		print("Done in "+str(time)[:4]+" seconds.")
-		
-		result = None
 
-		print("Total time consumption: "+str(get_time() - total_time)[:5]+" seconds.")
+	def write_data(fullname,result):
+		print("Writing raw data...")
+		if(data_file_ext[-3:] == ".gz"):
+			print(" compressing...")
+		time = get_time()
+		#Write iteration data to file. If the file name ends in .gz numpy automatically compresses it.
+		#Maybe in the future I'll be able to use this data to make an image.
+		np.savetxt(fullname,result,delimiter=' ')
+		time = get_time() - time
+		print("Done in "+str(time)[:4]+" seconds.")
+
+	#Determines whether to use \ or / for file paths.
+	pathdelim = "\\" if sys.platform == "win32" else "/"	
+	
+	colorname = "_color" if colorize else "_bw"
+
+	blurname = "_blur="+str(radius) if blur else ""
+
+	eval_type = "_multicore" if multicore else "_singlecore"
+
+	gammaname = "_g="+str(gamma)[:4]
+
+	ssaaname = "_ssaax"+str(ssfactor**2) if ssaa else ""
+
+	result = mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio)
+
+	if(saveresult):
+		filename = path+pathdelim+"mandel"+colorname+eval_type+data_file_ext
+		write_data(filename,result)	
+
+	if(saveimage):
+		filename = path+pathdelim+"mandelbrot_"+str(iters)+"_iters"+colorname+ssaaname+eval_type+blurname+gammaname+image_file_ext
+		write_image(filename,result)
+		
+	result = None
+
+	print("Total time consumption: "+str(get_time() - total_time)[:5]+" seconds.")
