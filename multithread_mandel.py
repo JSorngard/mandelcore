@@ -25,15 +25,14 @@ depth = 255 #Integer. Set to 255 if using colorize.
 iters = depth #Integer
 
 #Sets the aspect ratio of the image.
-aspect_ratio = 3./2.
+aspect_ratio = 3/2
 
-#Defines the "window" to look at the fractal in. Make sure to match the aspect ratio.
-start = -2.7-1.333j
-end = 1.3+1.333j
+#Defines parameters needed to determine the "window" to look at the fractal in.
+im_dist = 8/3 #The distance along the imaginary axis where the fractal is.
+fractal_center = -3/4+0j #The point to center the view on.
 
 #Number of points per axis to compute.
-im_eval_points = 5000 #y-axis. Must be an even integer.
-re_eval_points = int(aspect_ratio*im_eval_points) #x-axis.
+im_eval_points = 1440 #y-axis. Must be an even integer.
 
 #Compute it multithreaded.
 multicore = True
@@ -94,11 +93,12 @@ memory_debug = True
 #Set to False to print one less line. Hooray!
 
 parser = argparse.ArgumentParser(description="Computes and saves an image of the mandelbrot set.")
+parser.add_argument("-c","--center",required=False,type=complex,default=fractal_center,help="Specify the point in the complex plane to center the image on. Defaults to "+str(fractal_center)+".")
 parser.add_argument("-y","--yresolution",required=False,type=int,default=im_eval_points,help="Specify the y-axis resolution of the image. Defaults to "+str(im_eval_points)+".")
-#parser.add_argument("-x","--xresolution",required=False,type=int,default=int(im_eval_points*aspect_ratio),help="Specify the x-axis resolution of the image. Defaults to "+str(int(im_eval_points*aspect_ratio))+".")
+parser.add_argument("-r","--aspectratio",required=False,type=float,default=aspect_ratio,help="Specifies the aspect ratio of the image. Defaults to "+str(aspect_ratio)+".")
 parser.add_argument("-g","--gamma",required=False,type=float,default=gamma,help="Raises the output of the mandelbrot iterations to this number. Works as a gamma between 0.4 and 1.")
 parser.add_argument("--ssaafactor",required=False,type=int,default=ssfactor,help="Supersample each pixel this many times squared. Defaults to "+str(ssfactor)+".")
-parser.add_argument("--filextension",required=False,default=image_file_ext,help="Set the file extension of the generated image. Defaults to "+image_file_ext[1:]+".")
+parser.add_argument("--fileextension",required=False,default=image_file_ext,help="Set the file extension of the generated image. Defaults to "+image_file_ext[1:]+".")
 parser.add_argument("--saveresult",required=False,action="store_true",help="Use this argument if you want to save the results of the mandelbrot iterations to a "+data_file_ext+" file.")
 parser.add_argument("--noimage",required=False,action="store_false",help="Use this argument if you do not want the program to output an image file.")
 
@@ -108,9 +108,25 @@ im_eval_points = args["yresolution"]
 re_eval_points = int(aspect_ratio*im_eval_points)
 gamma = args["gamma"]
 ssfactor = args["ssaafactor"]
-image_file_ext = args["filextension"]
+image_file_ext = args["fileextension"]
 saveresult = args["saveresult"]
 saveimage = args["noimage"]
+fractal_center = args["center"]
+aspect_ratio = args["aspectratio"]
+
+#Compute the real version of previously defined parameters.
+re_dist = im_dist*aspect_ratio #The distance along the real axis there the fractal is.
+re_eval_points = int(aspect_ratio*im_eval_points) #x-axis.
+
+#Define the region of the complex plane to look at.
+start = fractal_center + -re_dist/2 -im_dist/2*1j
+end = fractal_center + re_dist/2 + im_dist/2*1j
+
+#start = -2.7-1.333j #Good for 3/2 aspect ratio.
+#end = 1.3+1.333j
+
+#start = -3.5 - 4/3j #Good for 16/9.
+#end = 1.6 + 4/3j
 
 #Multiplatform clock
 get_time = time.perf_counter if sys.platform == "win32" else time.time
@@ -334,7 +350,6 @@ def write_image(fullname,result):
 	if(has_imageio):
 		print(" using imageio...")
 		imageio.imwrite(fullname,result)
-		return 1
 	else:
 		print(" using PIL...")
 		print("  converting to image object...")
@@ -363,10 +378,9 @@ def write_image(fullname,result):
 		#	print("   saving second image...")
 		#	result.save(filename+"_2"+image_file_ext,optimize=True,quality=85)
 
-		return 1
-
 	time = get_time() - time
 	print("Done in "+str(time)[:4]+" seconds.")
+	return 1	
 
 def write_data(fullname,result):
 	print("Writing raw data...")
