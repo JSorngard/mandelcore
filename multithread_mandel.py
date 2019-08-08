@@ -92,18 +92,21 @@ data_file_ext = ".dat.gz"
 memory_debug = True
 #Set to False to print one less line. Hooray!
 
+#Define the different possible command line paramters.
 parser = argparse.ArgumentParser(description="Computes and saves an image of the mandelbrot set.")
 parser.add_argument("-c","--center",required=False,type=complex,default=fractal_center,help="Specify the point in the complex plane to center the image on. Defaults to "+str(fractal_center)+".")
 parser.add_argument("-y","--yresolution",required=False,type=int,default=im_eval_points,help="Specify the y-axis resolution of the image. Defaults to "+str(im_eval_points)+".")
 parser.add_argument("-r","--aspectratio",required=False,type=float,default=aspect_ratio,help="Specifies the aspect ratio of the image. Defaults to "+str(aspect_ratio)+".")
 parser.add_argument("-g","--gamma",required=False,type=float,default=gamma,help="Raises the output of the mandelbrot iterations to this number. Works as a gamma between 0.4 and 1.")
-parser.add_argument("--ssaafactor",required=False,type=int,default=ssfactor,help="Supersample each pixel this many times squared. Defaults to "+str(ssfactor)+".")
-parser.add_argument("--fileextension",required=False,default=image_file_ext,help="Set the file extension of the generated image. Defaults to "+image_file_ext[1:]+".")
+parser.add_argument("-s","--ssaafactor",required=False,type=int,default=ssfactor,help="Supersample each pixel this many times squared. Defaults to "+str(ssfactor)+".")
+parser.add_argument("-f","--fileextension",required=False,default=image_file_ext,help="Set the file extension of the generated image. Defaults to "+image_file_ext[1:]+".")
 parser.add_argument("--saveresult",required=False,action="store_true",help="Use this argument if you want to save the results of the mandelbrot iterations to a "+data_file_ext+" file.")
 parser.add_argument("--noimage",required=False,action="store_false",help="Use this argument if you do not want the program to output an image file.")
 
+#Extract the given arguments.
 args=vars(parser.parse_args())
 
+#Put them in appropriate variables.
 im_eval_points = args["yresolution"]
 re_eval_points = int(aspect_ratio*im_eval_points)
 gamma = args["gamma"]
@@ -114,13 +117,11 @@ saveimage = args["noimage"]
 fractal_center = args["center"]
 aspect_ratio = args["aspectratio"]
 
-#Compute the real version of previously defined parameters.
-re_dist = im_dist*aspect_ratio #The distance along the real axis there the fractal is.
-re_eval_points = int(aspect_ratio*im_eval_points) #x-axis.
-
+#Aspect ratio and fractal center are needed for these, to it is defined here.
+#re_dist = im_dist*aspect_ratio #The distance along the real axis there the fractal is.
 #Define the region of the complex plane to look at.
-start = fractal_center + -re_dist/2 -im_dist/2*1j
-end = fractal_center + re_dist/2 + im_dist/2*1j
+#start = fractal_center - re_dist/2 - im_dist/2*1j
+#end = fractal_center + re_dist/2 + im_dist/2*1j
 
 #start = -2.7-1.333j #Good for 3/2 aspect ratio.
 #end = 1.3+1.333j
@@ -133,6 +134,12 @@ get_time = time.perf_counter if sys.platform == "win32" else time.time
 
 #Determines the working directory of the program.
 path = os.path.dirname(os.path.abspath(__file__))
+
+def get_window(fractal_center,im_dist,aspect_ratio):
+	re_dist = im_dist*aspect_ratio
+	start = fractal_center - re_dist/2 - im_dist/2*1j
+	end = fractal_center + re_dist/2 + im_dist/2*1j
+	return start,end
 
 if(not fortran_omp):
 	def mandel_func(c,maxiterations=iters,colordepth=float(depth)):
@@ -401,21 +408,29 @@ if(__name__ == "__main__"):
 	#Determines whether to use \ or / for file paths.
 	pathdelim = "\\" if sys.platform == "win32" else "/"	
 	
+	#Generate the file name to save the image as.
 	colorname = "_color" if colorize else "_bw"
 
 	blurname = "_blur="+str(radius) if blur else ""
 
-	eval_type = "_multicore" if multicore else "_singlecore"
+	eval_type = ""
+	#eval_type = "_multicore" if multicore else "_singlecore" #Can be useful for debugging.
 
 	gammaname = "_g="+str(gamma)[:4]
 
 	ssaaname = "_ssaax"+str(ssfactor**2) if ssaa else ""
 
+	#Compute the region of the complex plane to plot.
+	start,end = get_window(fractal_center,im_dist,aspect_ratio)
+	
+	#Generate an RGB matrix of the fractal.
 	result = mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio)
 
+	#If the result of the computation is 0 there was an error.
 	if(type(result) == int and result == 0):
 		exit()
 
+	#Save the data as a file and not an image.
 	if(saveresult):
 		filename = path+pathdelim+"mandel"+colorname+eval_type+data_file_ext
 		success = write_data(filename,result)	
@@ -423,6 +438,7 @@ if(__name__ == "__main__"):
 		if(not success):
 			exit()
 
+	#Save an image.
 	if(saveimage):
 		filename = path+pathdelim+"mandelbrot_"+str(iters)+"_iters"+colorname+ssaaname+eval_type+blurname+gammaname+image_file_ext
 		success = write_image(filename,result)
@@ -430,6 +446,7 @@ if(__name__ == "__main__"):
 		if(not success):
 			exit()
 		
+	#Clear memory.
 	result = None
 
 	print("Total time consumption: "+str(get_time() - total_time)[:5]+" seconds.")
