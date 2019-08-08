@@ -143,7 +143,6 @@ if(not fortran_omp):
 
 def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug):
 
-
 		if(not saveresult and not saveimage):
 			print("Note: program will produce no output.")
 
@@ -152,7 +151,7 @@ def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,
 			im_eval_points = int(im_eval_points/2)
 		else:
 			print("Number of imaginary points must be even.")
-			exit()
+			return 0
 
 		print("Generating "+str(re_eval_points)+" by "+str(im_eval_points)+" grid...")
 		time = get_time()
@@ -171,7 +170,7 @@ def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,
 			grid = None
 			re_points = None
 			im_points = None
-			exit()
+			return 0
 
 		re_points = None
 		im_points = None
@@ -209,7 +208,7 @@ def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,
 				except MemoryError:
 					print("Out of memory when sending work to Fortran.")
 					grid = None
-					exit()
+					return 0
 				result = grid
 				time = get_time() - time
 				print("Done in "+str(time)[:4]+" seconds.")			
@@ -265,7 +264,7 @@ def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,
 				except MemoryError:
 					print("Out of memory when changing gamma.")
 					result = None
-					exit()
+					return 0
 
 			if(blur):
 				print(" blurring...")
@@ -277,7 +276,7 @@ def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,
 					print("Out of memory when blurring the image.")
 					result = None
 					blurred = None
-					exit()
+					return 0
 
 				blurred = None
 
@@ -291,7 +290,7 @@ def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,
 					print("Out of memory when colouring the image.")
 					colourized = None
 					result = None
-					exit()
+					return 0
 
 				colourized = None
 			else:
@@ -316,11 +315,11 @@ def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,
 				except MemoryError:
 					print("Out of memory when mirroring image.")
 					result = None
-					exit()	
+					return 0
 			except MemoryError:
 				print("Out of memory when mirroring image.")
 				result = None
-				exit()
+				return 0
 
 			time = get_time() - time
 			print("Done in "+str(time)[:4]+" seconds.")
@@ -335,6 +334,7 @@ def write_image(fullname,result):
 	if(has_imageio):
 		print(" using imageio...")
 		imageio.imwrite(fullname,result)
+		return 1
 	else:
 		print(" using PIL...")
 		print("  converting to image object...")
@@ -344,7 +344,7 @@ def write_image(fullname,result):
 		except OverflowError:
 			print("  The image array is too large for PIL to handle. Try installing imageio.")
 			result = None
-			exit()
+			return 0
 			#print("  Trying to save as two separate images to glue together later.")
 			#halfway = int(re_eval_points/2)
 			#result2 = result[:halfway]
@@ -358,10 +358,12 @@ def write_image(fullname,result):
 
 		print("  saving...")
 		result.save(fullname,optimize=True,quality=85)
-		
+
 		#if(result2 != None):
 		#	print("   saving second image...")
 		#	result.save(filename+"_2"+image_file_ext,optimize=True,quality=85)
+
+		return 1
 
 	time = get_time() - time
 	print("Done in "+str(time)[:4]+" seconds.")
@@ -376,6 +378,7 @@ def write_data(fullname,result):
 	np.savetxt(fullname,result,delimiter=' ')
 	time = get_time() - time
 	print("Done in "+str(time)[:4]+" seconds.")
+	return 1
 
 if(__name__ == "__main__"):
 	
@@ -396,13 +399,22 @@ if(__name__ == "__main__"):
 
 	result = mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio)
 
+	if(type(result) == int and result == 0):
+		exit()
+
 	if(saveresult):
 		filename = path+pathdelim+"mandel"+colorname+eval_type+data_file_ext
-		write_data(filename,result)	
+		success = write_data(filename,result)	
+		
+		if(not success):
+			exit()
 
 	if(saveimage):
 		filename = path+pathdelim+"mandelbrot_"+str(iters)+"_iters"+colorname+ssaaname+eval_type+blurname+gammaname+image_file_ext
-		write_image(filename,result)
+		success = write_image(filename,result)
+
+		if(not success):
+			exit()
 		
 	result = None
 
