@@ -32,7 +32,7 @@ start = -2.7-1.333j
 end = 1.3+1.333j
 
 #Number of points per axis to compute.
-im_eval_points = 1000 #y-axis. Must be an even integer.
+im_eval_points = 5000 #y-axis. Must be an even integer.
 re_eval_points = int(aspect_ratio*im_eval_points) #x-axis.
 
 #Compute it multithreaded.
@@ -76,7 +76,7 @@ gamma = .75 #Closer to 0 means a darker image.
 saveresult = False
 
 #What file type to save the image as.
-image_file_ext = ".png"
+image_file_ext = ".bmp"
 #Trials at im_eval_points = 10000, aspect_ratio = 3/2:
 #bmp: 47.5 seconds to encode a 450 MB image. No compression.
 #jpg: 54 seconds to encode a 3.8 MB image. Lossy compression.
@@ -98,8 +98,9 @@ parser.add_argument("-y","--yresolution",required=False,type=int,default=im_eval
 #parser.add_argument("-x","--xresolution",required=False,type=int,default=int(im_eval_points*aspect_ratio),help="Specify the x-axis resolution of the image. Defaults to "+str(int(im_eval_points*aspect_ratio))+".")
 parser.add_argument("-g","--gamma",required=False,type=float,default=gamma,help="Raises the output of the mandelbrot iterations to this number. Works as a gamma between 0.4 and 1.")
 parser.add_argument("--ssaafactor",required=False,type=int,default=ssfactor,help="Supersample each pixel this many times squared. Defaults to "+str(ssfactor)+".")
-parser.add_argument("--filextension",required=False,default=image_file_ext,help="Set the file extrension of the generated image. Defaults to "+image_file_ext[1:]+".")
+parser.add_argument("--filextension",required=False,default=image_file_ext,help="Set the file extension of the generated image. Defaults to "+image_file_ext[1:]+".")
 parser.add_argument("--saveresult",required=False,action="store_true",help="Use this argument if you want to save the results of the mandelbrot iterations to a "+data_file_ext+" file.")
+parser.add_argument("--noimage",required=False,action="store_false",help="Use this argument if you do not want the program to output an image file.")
 
 args=vars(parser.parse_args())
 
@@ -109,6 +110,13 @@ gamma = args["gamma"]
 ssfactor = args["ssaafactor"]
 image_file_ext = args["filextension"]
 saveresult = args["saveresult"]
+saveimage = args["noimage"]
+
+#Multiplatform clock
+get_time = time.perf_counter if sys.platform == "win32" else time.time
+
+#Determines the working directory of the program.
+path = os.path.dirname(os.path.abspath(__file__))
 
 if(not fortran_omp):
 	def mandel_func(c,maxiterations=iters,colordepth=float(depth)):
@@ -133,16 +141,7 @@ if(not fortran_omp):
 	def mandel_helper(cs,maxiterations=iters):
 		return [mandel_func(c,iters) for c in cs]
 
-if(__name__ == "__main__"):
-	#Multiplatform clock
-	get_time = time.perf_counter if sys.platform == "win32" else time.time
-
-	#Determines the working directory of the program.
-	path = os.path.dirname(os.path.abspath(__file__))
-	
-	total_time = get_time()
-
-	def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug):
+def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug):
 
 
 		if(not saveresult and not saveimage):
@@ -328,55 +327,59 @@ if(__name__ == "__main__"):
 
 		return result
 	
-	def write_image(fullname,result):
-		print("Writing image...")
-		time = get_time()
+def write_image(fullname,result):
+	print("Writing image...")
+	time = get_time()
 
-		#Write image to file.
-		if(has_imageio):
-			print(" using imageio...")
-			imageio.imwrite(fullname,result)
-		else:
-			print(" using PIL...")
-			print("  converting to image object...")
-			try:
-				#result2 = None
-				result = Image.fromarray(result)
-			except OverflowError:
-				print("  The image array is too large for PIL to handle. Try installing imageio.")
-				result = None
-				exit()
-				#print("  Trying to save as two separate images to glue together later.")
-				#halfway = int(re_eval_points/2)
-				#result2 = result[:halfway]
-				#result = result[halfway:]
+	#Write image to file.
+	if(has_imageio):
+		print(" using imageio...")
+		imageio.imwrite(fullname,result)
+	else:
+		print(" using PIL...")
+		print("  converting to image object...")
+		try:
+			#result2 = None
+			result = Image.fromarray(result)
+		except OverflowError:
+			print("  The image array is too large for PIL to handle. Try installing imageio.")
+			result = None
+			exit()
+			#print("  Trying to save as two separate images to glue together later.")
+			#halfway = int(re_eval_points/2)
+			#result2 = result[:halfway]
+			#result = result[halfway:]
 
-				#print("  converting first image...")
-				#result = Image.fromarray(result)
-				#print("  converting second image...")
-				#result2 = Image.fromarray(result2)
+			#print("  converting first image...")
+			#result = Image.fromarray(result)
+			#print("  converting second image...")
+			#result2 = Image.fromarray(result2)
 
 
-			print("  saving...")
-			result.save(fullname,optimize=True,quality=85)
-			
-			#if(result2 != None):
-			#	print("   saving second image...")
-			#	result.save(filename+"_2"+image_file_ext,optimize=True,quality=85)
+		print("  saving...")
+		result.save(fullname,optimize=True,quality=85)
+		
+		#if(result2 != None):
+		#	print("   saving second image...")
+		#	result.save(filename+"_2"+image_file_ext,optimize=True,quality=85)
 
-		time = get_time() - time
-		print("Done in "+str(time)[:4]+" seconds.")
+	time = get_time() - time
+	print("Done in "+str(time)[:4]+" seconds.")
 
-	def write_data(fullname,result):
-		print("Writing raw data...")
-		if(data_file_ext[-3:] == ".gz"):
-			print(" compressing...")
-		time = get_time()
-		#Write iteration data to file. If the file name ends in .gz numpy automatically compresses it.
-		#Maybe in the future I'll be able to use this data to make an image.
-		np.savetxt(fullname,result,delimiter=' ')
-		time = get_time() - time
-		print("Done in "+str(time)[:4]+" seconds.")
+def write_data(fullname,result):
+	print("Writing raw data...")
+	if(data_file_ext[-3:] == ".gz"):
+		print(" compressing...")
+	time = get_time()
+	#Write iteration data to file. If the file name ends in .gz numpy automatically compresses it.
+	#Maybe in the future I'll be able to use this data to make an image.
+	np.savetxt(fullname,result,delimiter=' ')
+	time = get_time() - time
+	print("Done in "+str(time)[:4]+" seconds.")
+
+if(__name__ == "__main__"):
+	
+	total_time = get_time()
 
 	#Determines whether to use \ or / for file paths.
 	pathdelim = "\\" if sys.platform == "win32" else "/"	
