@@ -63,6 +63,11 @@ colorize = True
 #three times as large as the main one.
 #The image must therefore be much smaller with this option turned on.
 
+#Zoom in on the fractal in a gif.
+zoom = 1 #The factor by which to zoom.
+frames = 1 #The number of frames before full zoom is achieved.
+duration = 1 #The number of seconds the animation should last for.
+
 #Raises the result of the mandelbrot iterations to this number.
 gamma = .75 #Closer to 0 means a darker image.
 #I take no artistic responsibillity for numbers larger than 1.
@@ -88,6 +93,10 @@ image_file_ext = ".bmp"
 #What file type to save the raw data as. If it ends in .gz it will be compressed.
 data_file_ext = ".dat.gz"
 
+#Whether to print more detailed information during image generation.
+#Will be set to true if frames == 1.
+debug = False
+
 #Print extra information about memory use.
 memory_debug = True
 #Set to False to print one less line. Hooray!
@@ -97,11 +106,15 @@ parser = argparse.ArgumentParser(description="Computes and saves an image of the
 parser.add_argument("-c","--center",required=False,type=complex,default=fractal_center,help="Specify the point in the complex plane to center the image on. Defaults to "+str(fractal_center)+".")
 parser.add_argument("-y","--yresolution",required=False,type=int,default=im_eval_points,help="Specify the y-axis resolution of the image. Defaults to "+str(im_eval_points)+".")
 parser.add_argument("-r","--aspectratio",required=False,type=float,default=aspect_ratio,help="Specifies the aspect ratio of the image. Defaults to "+str(aspect_ratio)+".")
+parser.add_argument("-z","--zoom",required=False,type=float,default=1.,help="The zoom in factor to reach.")
+parser.add_argument("-f","--frames",required=False,type=int,default=1,help="The number of frames per until the full zoom is achieved.")
+parser.add_argument("-d","--duration",required=False,type=float,default=duration,help="The number of seconds the animation should take (applicable if frames and zoom > 1).")
 parser.add_argument("-g","--gamma",required=False,type=float,default=gamma,help="Raises the output of the mandelbrot iterations to this number. Works as a gamma between 0.4 and 1.")
 parser.add_argument("-s","--ssaafactor",required=False,type=int,default=ssfactor,help="Supersample each pixel this many times squared. Defaults to "+str(ssfactor)+".")
-parser.add_argument("-f","--fileextension",required=False,default=image_file_ext,help="Set the file extension of the generated image. Defaults to "+image_file_ext[1:]+".")
+parser.add_argument("-e","--fileextension",required=False,default=image_file_ext,help="Set the file extension of the generated image. Defaults to "+image_file_ext[1:]+".")
 parser.add_argument("--saveresult",required=False,action="store_true",help="Use this argument if you want to save the results of the mandelbrot iterations to a "+data_file_ext+" file.")
 parser.add_argument("--noimage",required=False,action="store_false",help="Use this argument if you do not want the program to output an image file.")
+parser.add_argument("--debug",required=False,action="store_true",help="Use this argument if you want more detailed information on the computation. Will be on if only generating one image.")
 
 #Extract the given arguments.
 args=vars(parser.parse_args())
@@ -111,17 +124,15 @@ im_eval_points = args["yresolution"]
 re_eval_points = int(aspect_ratio*im_eval_points)
 gamma = args["gamma"]
 ssfactor = args["ssaafactor"]
+zoom = args["zoom"]
+frames = args["frames"]
+duration = args["duration"]
 image_file_ext = args["fileextension"]
 saveresult = args["saveresult"]
 saveimage = args["noimage"]
 fractal_center = args["center"]
 aspect_ratio = args["aspectratio"]
-
-#Aspect ratio and fractal center are needed for these, to it is defined here.
-#re_dist = im_dist*aspect_ratio #The distance along the real axis there the fractal is.
-#Define the region of the complex plane to look at.
-#start = fractal_center - re_dist/2 - im_dist/2*1j
-#end = fractal_center + re_dist/2 + im_dist/2*1j
+debug = args["debug"]
 
 #start = -2.7-1.333j #Good for 3/2 aspect ratio.
 #end = 1.3+1.333j
@@ -135,7 +146,8 @@ get_time = time.perf_counter if sys.platform == "win32" else time.time
 #Determines the working directory of the program.
 path = os.path.dirname(os.path.abspath(__file__))
 
-def get_window(fractal_center,im_dist,aspect_ratio):
+def get_window(fractal_center,im_dist,aspect_ratio,zoom):
+	im_dist *= 1/zoom
 	re_dist = im_dist*aspect_ratio
 	start = fractal_center - re_dist/2 - im_dist/2*1j
 	end = fractal_center + re_dist/2 + im_dist/2*1j
@@ -164,10 +176,7 @@ if(not fortran_omp):
 	def mandel_helper(cs,maxiterations=iters):
 		return [mandel_func(c,iters) for c in cs]
 
-def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug):
-
-		if(not saveresult and not saveimage):
-			print("Note: program will produce no output.")
+def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=False):
 
 		#Only compute half the points along the imaginary axis since there is a reflection symmetry.
 		if(np.mod(im_eval_points,2)==0):
@@ -175,9 +184,10 @@ def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,
 		else:
 			print("Number of imaginary points must be even.")
 			return 0
-
-		print("Generating "+str(re_eval_points)+" by "+str(im_eval_points)+" grid...")
-		time = get_time()
+		
+		if(debug):
+			print("Generating "+str(re_eval_points)+" by "+str(im_eval_points)+" grid...")
+			time = get_time()
 
 		re_points= np.linspace(np.real(start),np.real(end),re_eval_points)
 		deltar = re_points[1] - re_points[0]
@@ -198,10 +208,12 @@ def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,
 		re_points = None
 		im_points = None
 
-		time = get_time() - time
-		print("Done in "+str(time)[:4]+" seconds.")
 		
-		if(memory_debug):		
+		if(debug):
+			time = get_time() - time
+			print("Done in "+str(time)[:4]+" seconds.")
+		
+		if(memory_debug and debug):		
 			gridshape = np.shape(grid)
 			elements = gridshape[0]*gridshape[1]
 			cmplxsize = sys.getsizeof(1+1j)
@@ -217,51 +229,66 @@ def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,
 
 		if(multicore):
 			cores = mp.cpu_count()
-			print("Attempting to evaluate on "+str(cores)+" cores...")
+			if(debug):
+				print("Attempting to evaluate on "+str(cores)+" cores...")
+				time = get_time()
 
 			if(fortran_omp):
-				time = get_time()
 				try:
 					if(ssaa):						
-						print("Computing with SSAAx"+str(ssfactor**2)+"...")
+						if(debug):
+							print("Computing with SSAAx"+str(ssfactor**2)+"...")
 						grid = mandelfortran.mandel_calc_array_scaled_supersampled(grid,iters,depth,ssfactor,deltar,deltai)
 					else:
-						print("Computing...")
+						if(debug):
+							print("Computing...")
 						grid = mandelfortran.mandel_calc_array_scaled(grid,iters,depth)
 				except MemoryError:
 					print("Out of memory when sending work to Fortran.")
 					grid = None
 					return 0
 				result = grid
-				time = get_time() - time
-				print("Done in "+str(time)[:4]+" seconds.")			
+				
+				if(debug):
+					time = get_time() - time
+					print("Done in "+str(time)[:4]+" seconds.")			
 
 			else:
 				#Create a pool with the number of threads equal to the number of processor cores.
-				print("Creating thread pool...")
-				time = get_time()
+				if(debug):
+					print("Creating thread pool...")
 				pool = mp.Pool(processes=cores)
 				#Warm up the pool
 				pool.map(mandel_helper,np.ones((10,cores)))
 				time = get_time() - time
-				print("Done in "+str(time)[:5]+" seconds.")
+				if(debug):
+					print("Done in "+str(time)[:5]+" seconds.")
+					print("Computing...")
+					time = get_time()
 
-				print("Computing...")
-				time = get_time()
 				result = pool.map(mandel_helper,grid)
-				time = get_time() - time
-				print("Done in "+str(time)[:4]+" seconds.")
+				
+				if(debug):
+					time = get_time() - time
+					print("Done in "+str(time)[:4]+" seconds.")
 
 		else:
-			print("Evaluating on a single core...")
+			if(debug):
+				print("Evaluating on a single core...")
+
 			eval_type = "_singlecore"
+
 			mandel_vector = np.vectorize(mandel_func)
 
-			print("Computing...")
-			time = get_time()
+			if(debug):
+				print("Computing...")
+				time = get_time()
+			
 			result = mandel_vector(grid,iters)
-			time = get_time() - time
-			print("Done in "+str(time)[:4]+" seconds.")
+			
+			if(debug):
+				time = get_time() - time
+				print("Done in "+str(time)[:4]+" seconds.")
 		
 
 		grid = None #Removes the grid of complex values from memory.
@@ -271,12 +298,14 @@ def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,
 		result = np.real(result)
 
 		if(saveimage):
-			print("Performing image manipulations...")
-			time = get_time()
+			if(debug):
+				print("Performing image manipulations...")
+				time = get_time()
 			
 			gammaname = ""
 			if(gamma != 1.):
-				print(" changing gamma...")
+				if(debug):
+					print(" changing gamma...")
 				#If the image is large enough we compute it multithreaded.
 				#Don't do this. WAY slower than np.power. Gotta love vectorization.
 				#if(im_eval_points > 5000):
@@ -290,7 +319,8 @@ def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,
 					return 0
 
 			if(blur):
-				print(" blurring...")
+				if(debug):
+					print(" blurring...")
 				try:
 					blurred = np.zeros(np.shape(result))
 					blurred = imagefortran.fastgauss(result,radius)
@@ -304,7 +334,8 @@ def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,
 				blurred = None
 
 			if(colorize):
-				print(" colouring...")
+				if(debug):
+					print(" colouring...")
 				try:
 					colourized = np.zeros((np.concatenate((np.shape(result),np.array([3])))),order='F')
 					colourized = imagefortran.fcolour(depth,colourized,np.real(result))
@@ -317,7 +348,8 @@ def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,
 
 				colourized = None
 			else:
-				print(" fitting to color depth...")
+				if(debug):
+					print(" fitting to color depth...")
 				#Scale up to 0-depth.
 				result *= depth
 
@@ -328,7 +360,8 @@ def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,
 			#Convert to uints for image saving.
 			result = result.astype(np.uint8)
 
-			print(" mirroring...")
+			if(debug):
+				print(" mirroring...")
 			#Adds a flipped copy of the image to the top.
 			try:
 				result = np.concatenate((np.flip(result,axis=0),result))
@@ -344,66 +377,83 @@ def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,
 				result = None
 				return 0
 
-			time = get_time() - time
-			print("Done in "+str(time)[:4]+" seconds.")
+			if(debug):
+				time = get_time() - time
+				print("Done in "+str(time)[:4]+" seconds.")
 
 		return result
 	
-def write_image(fullname,result):
+def write_image(fullname,image_file_ext,result,duration=1,debug=False):
 	print("Writing image...")
 	time = get_time()
 
+	#Find the number of separate images in the result array.
+	frames = np.shape(result)[0]
+
 	#Write image to file.
 	if(has_imageio):
-		print(" using imageio...")
-		imageio.imwrite(fullname,result)
-	else:
-		print(" using PIL...")
-		print("  converting to image object...")
+		if(debug):
+			print(" using imageio...")
+		if(frames == 1):
+			imageio.imwrite(fullname+image_file_ext,result[0])
+		elif(frames > 1):
+			image_file_ext = ".gif"
+			imageio.mimwrite(fullname+image_file_ext,result,duration=duration/frames)
+	elif(frames == 1):
+		if(debug):
+			print(" using PIL...")
+			print("  converting to image object...")
 		try:
-			#result2 = None
-			result = Image.fromarray(result)
+			result = Image.fromarray(result[0])
 		except OverflowError:
 			print("  The image array is too large for PIL to handle. Try installing imageio.")
 			result = None
 			return 0
-			#print("  Trying to save as two separate images to glue together later.")
-			#halfway = int(re_eval_points/2)
-			#result2 = result[:halfway]
-			#result = result[halfway:]
 
-			#print("  converting first image...")
-			#result = Image.fromarray(result)
-			#print("  converting second image...")
-			#result2 = Image.fromarray(result2)
-
-
-		print("  saving...")
+		if(debug):
+			print("  saving...")
 		result.save(fullname,optimize=True,quality=85)
 
-		#if(result2 != None):
-		#	print("   saving second image...")
-		#	result.save(filename+"_2"+image_file_ext,optimize=True,quality=85)
+	else:
+		print("Can currrently not save gif with PIL.")
+		return 0
 
 	time = get_time() - time
 	print("Done in "+str(time)[:4]+" seconds.")
 	return 1	
 
-def write_data(fullname,result):
+def write_data(fullname,data_file_ext,result,debug=False):
 	print("Writing raw data...")
-	if(data_file_ext[-3:] == ".gz"):
+	if(data_file_ext[-3:] == ".gz" and debug):
 		print(" compressing...")
-	time = get_time()
+	if(debug):
+		time = get_time()
+
+	#Check if there is data from multiple frames to write.
+	if(len(np.shape(result)) == 4):
+		files = np.shape(result)[0]
+		print("  WARNING: writing data from multiple frames.")
+	else:
+		files = 1
+
 	#Write iteration data to file. If the file name ends in .gz numpy automatically compresses it.
 	#Maybe in the future I'll be able to use this data to make an image.
-	np.savetxt(fullname,result,delimiter=' ')
-	time = get_time() - time
-	print("Done in "+str(time)[:4]+" seconds.")
+		
+	for i in range(files):
+		index_name = "_"+str(i+1) if files > 1 else ""
+		np.savetxt(fullname+index_name+data_file_ext,result,delimiter=' ')
+	
+	if(debug):
+		time = get_time() - time
+		print("Done in "+str(time)[:4]+" seconds.")
 	return 1
+
 
 if(__name__ == "__main__"):
 	
 	total_time = get_time()
+	
+	print("START")
 
 	#Determines whether to use \ or / for file paths.
 	pathdelim = "\\" if sys.platform == "win32" else "/"	
@@ -420,28 +470,58 @@ if(__name__ == "__main__"):
 
 	ssaaname = "_ssaax"+str(ssfactor**2) if ssaa else ""
 
-	#Compute the region of the complex plane to plot.
-	start,end = get_window(fractal_center,im_dist,aspect_ratio)
+	#Avoid unneccesary work.
+	if(frames > 1 and zoom == 1):
+		frames = 1
+		print("More than one frame has been requested, but at no zoom. Generating one image instead.")
 	
-	#Generate an RGB matrix of the fractal.
-	result = mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio)
+	#The other alternatives (frames == 1 and zoom != 1) and (frames == 1 and zoom == 1)
+	#are both allowed.
 
-	#If the result of the computation is 0 there was an error.
-	if(type(result) == int and result == 0):
-		exit()
+	#Always print details when making a single image.
+	if(frames == 1):
+		debug = True
+
+	if(not saveresult and not saveimage):
+		print("Note: program will produce no output.")
+
+	result = []
+	for i in range(frames):
+
+		if(frames > 1):
+			print("---Generating frame "+str(i+1)+"/"+str(frames)+"---")
+
+		#Compute the region of the complex plane to plot.
+		start,end = get_window(fractal_center,im_dist,aspect_ratio,1.+(zoom-1)/frames*i)
+		
+		#Generate an RGB matrix of the fractal.
+		frame = mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,debug=debug)
+
+		#If the result of the computation is 0 there was an error.
+		if(type(frame) == int and result == 0):
+			frame = None
+			exit()
+
+		#Save the generated image.
+		result.append(frame)
+
+		print("")
+
+	#Clear up some memory.
+	frame = None
 
 	#Save the data as a file and not an image.
 	if(saveresult):
-		filename = path+pathdelim+"mandel"+colorname+eval_type+data_file_ext
-		success = write_data(filename,result)	
+		filename = path+pathdelim+"mandel"+colorname+eval_type
+		success = write_data(filename,data_file_ext,result)	
 		
 		if(not success):
 			exit()
 
 	#Save an image.
 	if(saveimage):
-		filename = path+pathdelim+"mandelbrot_"+str(iters)+"_iters"+colorname+ssaaname+eval_type+blurname+gammaname+image_file_ext
-		success = write_image(filename,result)
+		filename = path+pathdelim+"mandelbrot_"+str(iters)+"_iters"+colorname+ssaaname+eval_type+blurname+gammaname
+		success = write_image(filename,image_file_ext,result,duration)
 
 		if(not success):
 			exit()
@@ -450,3 +530,4 @@ if(__name__ == "__main__"):
 	result = None
 
 	print("Total time consumption: "+str(get_time() - total_time)[:5]+" seconds.")
+	print("END")
