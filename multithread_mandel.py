@@ -101,16 +101,20 @@ debug = False
 memory_debug = True
 #Set to False to print one less line. Hooray!
 
+#Set to true if you want the fastest escaping point to always be blue.
+colour_shift = False
+
 #Define the different possible command line paramters.
 parser = argparse.ArgumentParser(description="Computes and saves an image of the mandelbrot set.")
 parser.add_argument("-c","--center",required=False,type=complex,default=fractal_center,help="Specify the point in the complex plane to center the image on. Defaults to "+str(fractal_center)+".")
 parser.add_argument("-y","--yresolution",required=False,type=int,default=im_eval_points,help="Specify the y-axis resolution of the image. Defaults to "+str(im_eval_points)+".")
 parser.add_argument("-r","--aspectratio",required=False,type=float,default=aspect_ratio,help="Specifies the aspect ratio of the image. Defaults to "+str(aspect_ratio)+".")
 parser.add_argument("-z","--zoom",required=False,type=float,default=1.,help="The zoom in factor to reach.")
+parser.add_argument("-C","--colourshift",required=False,action="store_true",help="Use this flag if you want to shift the colouring so that the fastest escaping point is always blue.")
 parser.add_argument("-f","--frames",required=False,type=int,default=1,help="The number of frames per until the full zoom is achieved.")
 parser.add_argument("-d","--duration",required=False,type=float,default=duration,help="The number of seconds the animation should take (applicable if frames and zoom > 1).")
 parser.add_argument("-g","--gamma",required=False,type=float,default=gamma,help="Raises the output of the mandelbrot iterations to this number. Works as a gamma between 0.4 and 1.")
-parser.add_argument("-s","--ssaafactor",required=False,type=int,default=ssfactor,help="Supersample each pixel this many times squared. Defaults to "+str(ssfactor)+".")
+parser.add_argument("-s","--ssaafactor",required=False,type=int,default=ssfactor,help="Supersample each pixel this many times squared. Defaults to "+str(ssfactor)+". If 1, no SSAA will be computed.")
 parser.add_argument("-e","--fileextension",required=False,default=image_file_ext,help="Set the file extension of the generated image. Defaults to "+image_file_ext[1:]+".")
 parser.add_argument("--saveresult",required=False,action="store_true",help="Use this argument if you want to save the results of the mandelbrot iterations to a "+data_file_ext+" file.")
 parser.add_argument("--noimage",required=False,action="store_false",help="Use this argument if you do not want the program to output an image file.")
@@ -124,7 +128,10 @@ im_eval_points = args["yresolution"]
 re_eval_points = int(aspect_ratio*im_eval_points)
 gamma = args["gamma"]
 ssfactor = args["ssaafactor"]
+if(ssfactor == 1):
+	ssaa = False
 zoom = args["zoom"]
+colour_shift = args["colourshift"]
 frames = args["frames"]
 duration = args["duration"]
 image_file_ext = args["fileextension"]
@@ -145,13 +152,6 @@ get_time = time.perf_counter if sys.platform == "win32" else time.time
 
 #Determines the working directory of the program.
 path = os.path.dirname(os.path.abspath(__file__))
-
-def get_window(fractal_center,im_dist,aspect_ratio,zoom):
-	im_dist *= 1/zoom
-	re_dist = im_dist*aspect_ratio
-	start = fractal_center - re_dist/2 - im_dist/2*1j
-	end = fractal_center + re_dist/2 + im_dist/2*1j
-	return start,end
 
 if(not fortran_omp):
 	def mandel_func(c,maxiterations=iters,colordepth=float(depth)):
@@ -176,14 +176,21 @@ if(not fortran_omp):
 	def mandel_helper(cs,maxiterations=iters):
 		return [mandel_func(c,iters) for c in cs]
 
-def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=False):
+def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=False,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=False):
 
-		#Only compute half the points along the imaginary axis since there is a reflection symmetry.
-		if(np.mod(im_eval_points,2)==0):
-			im_eval_points = int(im_eval_points/2)
-		else:
-			print("Number of imaginary points must be even.")
-			return 0
+		im_dist *= 1/zoom
+		re_dist = im_dist*aspect_ratio
+		start = fractal_center - re_dist/2 - im_dist/2*1j
+		end = fractal_center + re_dist/2 + im_dist/2*1j
+
+		#We can get away with doing only half the work if we are centered on the real axis due to mirror symmetry.
+		mirror = np.imag(fractal_center) == 0
+		if(mirror):
+			if(np.mod(im_eval_points,2)==0):
+				im_eval_points = int(im_eval_points/2)
+			else:
+				print("Number of imaginary points must be even.")
+				return 0
 		
 		if(debug):
 			print("Generating "+str(re_eval_points)+" by "+str(im_eval_points)+" grid...")
@@ -191,7 +198,10 @@ def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,
 
 		re_points= np.linspace(np.real(start),np.real(end),re_eval_points)
 		deltar = re_points[1] - re_points[0]
-		im_points= np.linspace(0,np.imag(end),im_eval_points)
+		if(mirror):
+			im_points= np.linspace(0,np.imag(end),im_eval_points)
+		else:
+			im_points= np.linspace(np.imag(start),np.imag(end),im_eval_points)
 		deltai = im_points[1] - im_points[0]
 
 		re_grid,im_grid = np.meshgrid(re_points,im_points*1j,sparse=True)
@@ -202,11 +212,15 @@ def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,
 			print("Out of memory when allocating grid.")
 			grid = None
 			re_points = None
+			im_grid = None
 			im_points = None
+			im_grid = None
 			return 0
 
 		re_points = None
+		re_grid = None
 		im_points = None
+		im_grid = None
 
 		
 		if(debug):
@@ -337,6 +351,10 @@ def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,
 				if(debug):
 					print(" colouring...")
 				try:
+					#Shifts the colouring so that the fastest escaping point is blue.
+					if(colour_shift):
+						result = np.multiply(result,.98/np.max(result))
+					
 					colourized = np.zeros((np.concatenate((np.shape(result),np.array([3])))),order='F')
 					colourized = imagefortran.fcolour(depth,colourized,np.real(result))
 					result = colourized
@@ -360,26 +378,27 @@ def mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,depth=depth,
 			#Convert to uints for image saving.
 			result = result.astype(np.uint8)
 
-			if(debug):
-				print(" mirroring...")
-			#Adds a flipped copy of the image to the top.
-			try:
-				result = np.concatenate((np.flip(result,axis=0),result))
-			except AttributeError:
+			if(mirror):
+				if(debug):
+					print(" mirroring...")
+				#Adds a flipped copy of the image to the top.
 				try:
-					result = np.concatenate((result[::-1],result))
+					result = np.concatenate((np.flip(result,axis=0),result))
+				except AttributeError:
+					try:
+						result = np.concatenate((result[::-1],result))
+					except MemoryError:
+						print("Out of memory when mirroring image.")
+						result = None
+						return 0
 				except MemoryError:
 					print("Out of memory when mirroring image.")
 					result = None
 					return 0
-			except MemoryError:
-				print("Out of memory when mirroring image.")
-				result = None
-				return 0
 
-			if(debug):
-				time = get_time() - time
-				print("Done in "+str(time)[:4]+" seconds.")
+				if(debug):
+					time = get_time() - time
+					print("Done in "+str(time)[:4]+" seconds.")
 
 		return result
 	
@@ -419,7 +438,10 @@ def write_image(fullname,image_file_ext,result,duration=1,debug=False):
 		return 0
 
 	time = get_time() - time
-	print("Done in "+str(time)[:4]+" seconds.")
+	
+	if(debug):
+		print("Done in "+str(time)[:4]+" seconds.")
+	
 	return 1	
 
 def write_data(fullname,data_file_ext,result,debug=False):
@@ -486,16 +508,21 @@ if(__name__ == "__main__"):
 		print("Note: program will produce no output.")
 
 	result = []
+	z = 1
 	for i in range(frames):
 
 		if(frames > 1):
-			print("---Generating frame "+str(i+1)+"/"+str(frames)+"---")
-
-		#Compute the region of the complex plane to plot.
-		start,end = get_window(fractal_center,im_dist,aspect_ratio,1.+(zoom-1)/frames*i)
+			print("---Generating frame "+str(i+1)+"/"+str(frames)+", "+str(100*float(i+1)/float(frames))[:4]+"%---")
+		
+		#Computes the ammount of zoom in this frame. 
+		#z = 1.+(zoom-1)/frames*i #This slows down towards the end.
+		#z = 1 - i/frames + zoom*i**2/frames**2 #This slows down less.
+		#z = (zoom-1)/frames**2*i**2 + 1 #This is similar, but more efficient computation.
+		#z = (zoom-1)/(np.exp(frames)-1)*(np.exp(i)-1) + 1 #Jump scare at the end.
+		z = (zoom**(1/frames))**i #Constant relative speed.
 		
 		#Generate an RGB matrix of the fractal.
-		frame = mandelbrot(start,end,re_eval_points,im_eval_points,aspect_ratio,debug=debug)
+		frame = mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio,z,debug=debug,colour_shift=colour_shift)
 
 		#If the result of the computation is 0 there was an error.
 		if(type(frame) == int and result == 0):
