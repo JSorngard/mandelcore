@@ -508,18 +508,20 @@ if(__name__ == "__main__"):
 		print("Note: program will produce no output.")
 
 	result = []
-	z = 1
 	for i in range(frames):
 
 		if(frames > 1):
 			print("---Generating frame "+str(i+1)+"/"+str(frames)+", "+str(100*float(i+1)/float(frames))[:4]+"%---")
 		
-		#Computes the ammount of zoom in this frame. 
-		#z = 1.+(zoom-1)/frames*i #This slows down towards the end.
-		#z = 1 - i/frames + zoom*i**2/frames**2 #This slows down less.
-		#z = (zoom-1)/frames**2*i**2 + 1 #This is similar, but more efficient computation.
-		#z = (zoom-1)/(np.exp(frames)-1)*(np.exp(i)-1) + 1 #Jump scare at the end.
-		z = (zoom**(1/frames))**i #Constant relative speed.
+		if(frames == 1):
+			z = zoom
+		else:
+			#Computes the ammount of zoom in this frame. 
+			#z = 1.+(zoom-1)/frames*i #This slows down towards the end.
+			#z = 1 - i/frames + zoom*i**2/frames**2 #This slows down less.
+			#z = (zoom-1)/frames**2*i**2 + 1 #This is similar, but more efficient computation.
+			#z = (zoom-1)/(np.exp(frames)-1)*(np.exp(i)-1) + 1 #Jump scare at the end.
+			z = (zoom**(1/frames))**i #Constant relative speed.
 		
 		#Generate an RGB matrix of the fractal.
 		frame = mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio,z,debug=debug,colour_shift=colour_shift)
