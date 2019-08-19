@@ -74,13 +74,13 @@ complex*16,intent(inout),dimension(n,m) :: grid
 integer :: mandel_calc
 integer :: i,j
 
-!$OMP PARALLEL DO shared(grid)
+!$OMP parallel do shared(grid)
 do j=1,m
     do i=1,n
         grid(i,j) = dcmplx(mandel_calc(dble(grid(i,j)),aimag(grid(i,j)),maxiters),0.d0)
     end do
 end do
-!$OMP END PARALLEL DO
+!$OMP end parallel do
 
 end subroutine mandel_calc_array
 
@@ -122,6 +122,7 @@ end do
 if(iters == maxiters) then !In the set
     mandel_calc_scaled = 0.d0
 else
+    !This formula scales the answer to a real between 0 and 1 in a way that smoothens out the colours far away.
     mandel_calc_scaled = (2.d0+(maxiters-iters-2.d0)-4.d0*sqrt(zrsqr+zisqr)**(-.4d0))/dble(depth) !Puts the answer in the range 0-1
 end if
 
@@ -141,13 +142,13 @@ complex*16,intent(inout),dimension(n,m) :: grid
 real*8 :: mandel_calc_scaled
 integer :: i,j
 
-!$OMP PARALLEL DO shared(grid)
+!$OMP parallel do shared(grid)
 do j=1,m
     do i=1,n
         grid(i,j) = dcmplx(mandel_calc_scaled(dble(grid(i,j)),aimag(grid(i,j)),maxiters,depth),0.d0)
     end do
 end do
-!$OMP END PARALLEL DO
+!$OMP end parallel do
 end subroutine mandel_calc_array_scaled
 
 subroutine mandel_calc_array_scaled_supersampled(grid,maxiters,depth,samplingfactor,deltar,deltai,n,m)
@@ -174,7 +175,7 @@ integer :: i,j,k
 
 invfactor = 1.d0/real(samplingfactor,kind=8)
 
-!$OMP PARALLEL DO shared(grid) private(total,esc,coloffset,rowoffset)
+!$OMP parallel do shared(grid) private(total,esc,coloffset,rowoffset)
 do j=1,m
     do i=1,n
         total = 0.d0
@@ -189,7 +190,7 @@ do j=1,m
         grid(i,j) = total/real(samplingfactor**2,kind=8)
     end do
 end do
-!$OMP END PARALLEL DO
+!$OMP end parallel do
 
 
 end subroutine mandel_calc_array_scaled_supersampled
@@ -210,13 +211,12 @@ if(exponent == 1.d0) then
     return
 end if
 
-!$OMP PARALLEL DO shared(array)
+!$OMP parallel do simd shared(array)
 do j=1,m
-    write(*,*) j
     do i=1,n
         array(n,m) = array(n,m)**exponent
     end do
 end do
-!$OMP END PARALLEL DO
+!$OMP end parallel do simd
 
 end subroutine multicore_pow
