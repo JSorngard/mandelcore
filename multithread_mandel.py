@@ -25,11 +25,11 @@ depth = 255 #Integer. Set to 255 if using colorize.
 iters = depth #Integer
 
 #Sets the aspect ratio of the image.
-aspect_ratio = 3/2
+aspect_ratio = 3./2.
 
 #Defines parameters needed to determine the "window" to look at the fractal in.
-im_dist = 8/3 #The distance along the imaginary axis where the fractal is.
-fractal_center = -3/4+0j #The point to center the view on.
+im_dist = 8./3. #The distance along the imaginary axis where the fractal is.
+fractal_center = -3./4.+0j #The point to center the view on.
 
 #Number of points per axis to compute.
 im_eval_points = 1440 #y-axis. Must be an even integer.
@@ -124,8 +124,10 @@ parser.add_argument("--debug",required=False,action="store_true",help="Use this 
 args=vars(parser.parse_args())
 
 #Put them in appropriate variables.
+aspect_ratio = args["aspectratio"]
 im_eval_points = args["yresolution"]
-re_eval_points = int(aspect_ratio*im_eval_points)
+re_eval_points = int(round(aspect_ratio*im_eval_points))
+print(aspect_ratio,re_eval_points,im_eval_points)
 gamma = args["gamma"]
 ssfactor = args["ssaafactor"]
 if(ssfactor == 1):
@@ -138,7 +140,6 @@ image_file_ext = args["fileextension"]
 saveresult = args["saveresult"]
 saveimage = args["noimage"]
 fractal_center = args["center"]
-aspect_ratio = args["aspectratio"]
 debug = args["debug"]
 
 #start = -2.7-1.333j #Good for 3/2 aspect ratio.
@@ -233,12 +234,28 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 			cmplxsize = sys.getsizeof(1+1j)
 			#cmplxnparraysize = sys.getsizeof(np.array(1+1j))
 			#cmplxnparray10size = sys.getsizeof((1+1j)*np.ones(1,dtype=complex))
+			
+			#Dicts to generate the appropriate suffixes.
+			gridsize = elements*cmplxsize
+			datasuffixes = {
+				0: "B",
+				3: "kB",
+				6: "MB",
+				9: "GB",
+				12: "TB" #Please don't ever need this.
+			}
+			exponent = 3*((int(np.log10(gridsize))/3)%12) #Maps 0-2 to 0, 3-5 to 3, 6-8 to 6 and  9-11 to 9.
+			suffix = datasuffixes.get(exponent)
+			
+			#Shifts the size down to the appropriate order of magnitude and rounds to no decimals.
+			gridsize *= 1./(10**(exponent))
+			gridsize = int(round(gridsize,0))
 
 			#print("Size of a complex number: "+str(cmplxsize)+" B.")
 			#print("Size of a numpy array with a complex number: "+str(cmplxnparraysize)+" B.")
 			#print("Size of a numpy array with 10 complex numbers: "+str(cmplxnparray10size)+" B.")
 			#print("Elements in grid: "+str(elements)+".")
-			print("Grid should take up roughly "+str(elements*cmplxsize/1e6)+" MB in RAM.")
+			print("Grid should take up roughly "+str(gridsize)+" "+suffix+" in memory.")
 			#print("Size of grid: "+str(sys.getsizeof(grid)/1e6)+" MB.")
 
 		if(multicore):
@@ -402,26 +419,31 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 
 		return result
 	
-def write_image(fullname,image_file_ext,result,duration=1,debug=False):
+def write_image(fullname,image_file_ext,result,has_imageio,duration=1,debug=False):
 	print("Writing image...")
 	time = get_time()
 
 	#Find the number of separate images in the result array.
-	frames = np.shape(result)[0]
+	#frames = np.shape(result)[0] #This takes a weirldy large ammount of time.
+	frames = len(result)
+	
+	#If we have generated multiple images we are making a gif.
+	if(frames > 1):
+		image_file_ext = ".gif"
 
 	#Write image to file.
 	if(has_imageio):
 		if(debug):
 			print(" using imageio...")
+			print("saving "+fullname+image_file_ext+"...")
 		if(frames == 1):
 			imageio.imwrite(fullname+image_file_ext,result[0])
 		elif(frames > 1):
-			image_file_ext = ".gif"
 			imageio.mimwrite(fullname+image_file_ext,result,duration=duration/frames)
 	elif(frames == 1):
 		if(debug):
 			print(" using PIL...")
-			print("  converting to image object...")
+			print("  converting array to image object...")
 		try:
 			result = Image.fromarray(result[0])
 		except OverflowError:
@@ -430,12 +452,28 @@ def write_image(fullname,image_file_ext,result,duration=1,debug=False):
 			return 0
 
 		if(debug):
-			print("  saving...")
+			print("  saving "+fullname+image_file_ext+"...")
 		result.save(fullname+image_file_ext,optimize=True,quality=85)
 
 	else:
-		print("Can currrently not save gif with PIL.")
+		print("Can not use PIL to save a gif. Try instaling imageio.")
 		return 0
+		if(debug):
+			print(" using PIL...")
+			print("  converting arrays to image objects...")
+		try:
+			result = [Image.fromarray(array) for array in result]
+		except OverflowError:
+			print("  The image arrays are too large for PIL to handle. Try installing imageio.")
+			result = None
+			return 0
+		
+		if(debug):
+			print("  saving "+fullname+image_file_ext+"...")
+		result[0].save(fullname+image_file_ext,format='GIF',save_all=True,append_images=result[1:],duration=duration/frames)
+		
+		#print("Can currrently not save gif with PIL.")
+		#return 0
 
 	time = get_time() - time
 	
@@ -511,7 +549,7 @@ if(__name__ == "__main__"):
 	for i in range(frames):
 
 		if(frames > 1):
-			print("---Generating frame "+str(i+1)+"/"+str(frames)+", "+str(100*float(i+1)/float(frames))[:4]+"%---")
+			print("---Generating frame "+str(i+1)+"/"+str(frames)+", "+str(100*float(i+1)/float(frames))[:5]+"%---")
 		
 		if(frames == 1):
 			z = zoom
@@ -523,8 +561,14 @@ if(__name__ == "__main__"):
 			#z = (zoom-1)/(np.exp(frames)-1)*(np.exp(i)-1) + 1 #Jump scare at the end.
 			z = (zoom**(1/frames))**i #Constant relative speed.
 		
+		if(debug and frames > 1):
+			time = get_time()
+
 		#Generate an RGB matrix of the fractal.
 		frame = mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio,z,debug=debug,colour_shift=colour_shift)
+		
+		if(debug and frames > 1):
+			print("---Frame finished in "+str(get_time() - time)[:4]+" seconds---")
 
 		#If the result of the computation is 0 there was an error.
 		if(type(frame) == int and result == 0):
@@ -542,7 +586,7 @@ if(__name__ == "__main__"):
 	#Save the data as a file and not an image.
 	if(saveresult):
 		filename = path+pathdelim+"mandel"+colorname+eval_type
-		success = write_data(filename,data_file_ext,result)	
+		success = write_data(filename,data_file_ext,result,debug=debug)	
 		
 		if(not success):
 			exit()
@@ -550,7 +594,7 @@ if(__name__ == "__main__"):
 	#Save an image.
 	if(saveimage):
 		filename = path+pathdelim+"mandelbrot_"+str(iters)+"_iters"+colorname+ssaaname+eval_type+blurname+gammaname
-		success = write_image(filename,image_file_ext,result,duration)
+		success = write_image(filename,image_file_ext,result,has_imageio,duration=duration,debug=debug)
 
 		if(not success):
 			exit()
