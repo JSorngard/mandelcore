@@ -431,7 +431,7 @@ def write_image(fullname,image_file_ext,result,duration=1,debug=False):
 
 		if(debug):
 			print("  saving...")
-		result.save(fullname,optimize=True,quality=85)
+		result.save(fullname+image_file_ext,optimize=True,quality=85)
 
 	else:
 		print("Can currrently not save gif with PIL.")
