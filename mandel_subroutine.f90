@@ -142,13 +142,22 @@ complex*16,intent(inout),dimension(n,m) :: grid
 real*8 :: mandel_calc_scaled
 integer :: i,j
 
-!$OMP parallel do shared(grid)
-do j=1,m
-    do i=1,n
-        grid(i,j) = dcmplx(mandel_calc_scaled(dble(grid(i,j)),aimag(grid(i,j)),maxiters,depth),0.d0)
+!If the image is small enough, spreading the work out on multiple cores is unnecesary and makes the computation slower.
+if(m < 300) then
+    do j=1,m
+        do i=1,n
+            grid(i,j) = dcmplx(mandel_calc_scaled(dble(grid(i,j)),aimag(grid(i,j)),maxiters,depth),0.d0)
+        end do
     end do
-end do
-!$OMP end parallel do
+else
+    !$OMP parallel do shared(grid)
+    do j=1,m
+        do i=1,n
+            grid(i,j) = dcmplx(mandel_calc_scaled(dble(grid(i,j)),aimag(grid(i,j)),maxiters,depth),0.d0)
+        end do
+    end do
+    !$OMP end parallel do
+end if
 end subroutine mandel_calc_array_scaled
 
 subroutine mandel_calc_array_scaled_supersampled(grid,maxiters,depth,samplingfactor,deltar,deltai,n,m)
