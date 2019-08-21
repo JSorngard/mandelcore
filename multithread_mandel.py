@@ -13,7 +13,11 @@ try:
 except ImportError:
 	from PIL import Image
 	has_imageio = False
-
+try:
+	from numba import njit
+	has_numba = True
+except ImportError:
+	has_numba = False
 
 #DEFAULT SETTINGS:
 
@@ -127,7 +131,6 @@ args=vars(parser.parse_args())
 aspect_ratio = args["aspectratio"]
 im_eval_points = args["yresolution"]
 re_eval_points = int(round(aspect_ratio*im_eval_points))
-print(aspect_ratio,re_eval_points,im_eval_points)
 gamma = args["gamma"]
 ssfactor = args["ssaafactor"]
 if(ssfactor == 1):
@@ -141,6 +144,10 @@ saveresult = args["saveresult"]
 saveimage = args["noimage"]
 fractal_center = args["center"]
 debug = args["debug"]
+
+if(not has_imageio and frames > 1):
+	print("Since the number of requested frames is larger than one, the output file type has been set to gif. But this computer does not have imageio installed, and PIL can not save gifs. Install imageio, or request only one image, and try again.")
+	exit()
 
 #start = -2.7-1.333j #Good for 3/2 aspect ratio.
 #end = 1.3+1.333j
@@ -176,6 +183,16 @@ if(not fortran_omp):
 
 	def mandel_helper(cs,maxiterations=iters):
 		return [mandel_func(c,iters) for c in cs]
+
+#Makes exponentiation multicore if applicable on current machine.
+cpu_cores = mp.cpu_count()
+if(has_numba and cpu_cores > 1 and im_eval_points >= 4000):
+	@njit(parallel=True)
+	def powah(array,power):
+		return np.power(array,power)
+else:
+	def powah(array,power):
+		return np.power(array,power)
 
 def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=False,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=False):
 
@@ -228,15 +245,10 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 			time = get_time() - time
 			print("Done in "+str(time)[:4]+" seconds.")
 		
-		if(memory_debug and debug):		
-			gridshape = np.shape(grid)
-			elements = gridshape[0]*gridshape[1]
-			cmplxsize = sys.getsizeof(1+1j)
-			#cmplxnparraysize = sys.getsizeof(np.array(1+1j))
-			#cmplxnparray10size = sys.getsizeof((1+1j)*np.ones(1,dtype=complex))
+
+		if(memory_debug and debug):
 			
-			#Dicts to generate the appropriate suffixes.
-			gridsize = elements*cmplxsize
+			#Dict to generate the appropriate suffixes.
 			datasuffixes = {
 				0: "B",
 				3: "kB",
@@ -244,24 +256,29 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 				9: "GB",
 				12: "TB" #Please don't ever need this.
 			}
-			exponent = 3*((int(np.log10(gridsize))/3)%12) #Maps 0-2 to 0, 3-5 to 3, 6-8 to 6 and  9-11 to 9.
-			suffix = datasuffixes.get(exponent)
+			
+			#Compute the size of the grid.		
+			grid_shape = np.shape(grid)
+			elements = grid_shape[0]*grid_shape[1]
+			cmplx_size = sys.getsizeof(1+1j)
+			grid_size = elements*cmplx_size
+ 
+			grid_exp = 3*((int(np.log10(grid_size))/3)%12) #Maps 0-2 to 0, 3-5 to 3, 6-8 to 6 and  9-11 to 9.
+			grid_suffix = datasuffixes.get(grid_exp)
 			
 			#Shifts the size down to the appropriate order of magnitude and rounds to no decimals.
-			gridsize *= 1./(10**(exponent))
-			gridsize = int(round(gridsize,0))
+			grid_size *= 1./(10**(grid_exp))
+			grid_size = int(round(grid_size,0))
 
-			#print("Size of a complex number: "+str(cmplxsize)+" B.")
-			#print("Size of a numpy array with a complex number: "+str(cmplxnparraysize)+" B.")
-			#print("Size of a numpy array with 10 complex numbers: "+str(cmplxnparray10size)+" B.")
-			#print("Elements in grid: "+str(elements)+".")
-			print("Grid should take up roughly "+str(gridsize)+" "+suffix+" in memory.")
-			#print("Size of grid: "+str(sys.getsizeof(grid)/1e6)+" MB.")
+			print("Grid should take up roughly "+str(grid_size)+" "+grid_suffix+" in memory.")
 
 		if(multicore):
 			cores = mp.cpu_count()
 			if(debug):
-				print("Attempting to evaluate on "+str(cores)+" cores...")
+				if(im_eval_points < 300): #The 300 limit is hard coded into the fortran code as of right now.
+					print("Evaluating with a single core due to the image size...")
+				else:
+					print("Attempting to evaluate on "+str(cores)+" cores...")
 				time = get_time()
 
 			if(fortran_omp):
@@ -343,7 +360,7 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 				#	result = mandelfortran.multicore_pow(result,gamma)
 				#else:
 				try:
-			 		result = np.power(result,gamma)
+			 		result = powah(result,gamma)
 				except MemoryError:
 					print("Out of memory when changing gamma.")
 					result = None
@@ -353,7 +370,11 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 				if(debug):
 					print(" blurring...")
 				try:
+					if(debug):
+						print("  generating target...")
 					blurred = np.zeros(np.shape(result))
+					if(debug):
+						print("  computing gaussian blur...")
 					blurred = imagefortran.fastgauss(result,radius)
 					result = blurred
 				except MemoryError:
@@ -370,9 +391,16 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 				try:
 					#Shifts the colouring so that the fastest escaping point is blue.
 					if(colour_shift):
+						if(debug):
+							print("  scaling...")
 						result = np.multiply(result,.98/np.max(result))
 					
+					if(debug):
+						print("  generating target...")
 					colourized = np.zeros((np.concatenate((np.shape(result),np.array([3])))),order='F')
+					
+					if(debug):
+						print("  computing colours...")
 					colourized = imagefortran.fcolour(depth,colourized,np.real(result))
 					result = colourized
 				except MemoryError:
@@ -415,7 +443,9 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 
 				if(debug):
 					time = get_time() - time
-					print("Done in "+str(time)[:4]+" seconds.")
+					#Need an extra digit of precision if the image is small.
+					accuracy = 4 if im_eval_points > 200 else 5
+					print("Done in "+str(time)[:accuracy]+" seconds.")
 
 		return result
 	
@@ -567,13 +597,13 @@ if(__name__ == "__main__"):
 		#Generate an RGB matrix of the fractal.
 		frame = mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio,z,debug=debug,colour_shift=colour_shift)
 		
-		if(debug and frames > 1):
-			print("---Frame finished in "+str(get_time() - time)[:4]+" seconds---")
-
 		#If the result of the computation is 0 there was an error.
-		if(type(frame) == int and result == 0):
+		if(type(frame) == int and frame == 0):
 			frame = None
 			exit()
+
+		if(debug and frames > 1):
+			print("---Frame finished in "+str(get_time() - time)[:4]+" seconds---")
 
 		#Save the generated image.
 		result.append(frame)
