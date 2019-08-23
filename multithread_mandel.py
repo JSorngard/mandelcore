@@ -114,6 +114,7 @@ parser.add_argument("-c","--center",required=False,type=complex,default=fractal_
 parser.add_argument("-y","--yresolution",required=False,type=int,default=im_eval_points,help="Specify the y-axis resolution of the image. Defaults to "+str(im_eval_points)+".")
 parser.add_argument("-r","--aspectratio",required=False,type=float,default=aspect_ratio,help="Specifies the aspect ratio of the image. Defaults to "+str(aspect_ratio)+".")
 parser.add_argument("-z","--zoom",required=False,type=float,default=1.,help="The zoom in factor to reach.")
+parser.add_argument("-b","--blackwhite",required=False,action="store_false",help="Use this command if you want the image to be black and white.")
 parser.add_argument("-C","--colourshift",required=False,action="store_true",help="Use this flag if you want to shift the colouring so that the fastest escaping point is always blue.")
 parser.add_argument("-f","--frames",required=False,type=int,default=1,help="The number of frames per until the full zoom is achieved.")
 parser.add_argument("-d","--duration",required=False,type=float,default=duration,help="The number of seconds the animation should take (applicable if frames and zoom > 1).")
@@ -136,6 +137,7 @@ ssfactor = args["ssaafactor"]
 if(ssfactor == 1):
 	ssaa = False
 zoom = args["zoom"]
+colorize = args["blackwhite"]
 colour_shift = args["colourshift"]
 frames = args["frames"]
 duration = args["duration"]
@@ -262,13 +264,14 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 			elements = grid_shape[0]*grid_shape[1]
 			cmplx_size = sys.getsizeof(1+1j)
 			grid_size = elements*cmplx_size
- 
-			grid_exp = 3*((int(np.log10(grid_size))/3)%12) #Maps 0-2 to 0, 3-5 to 3, 6-8 to 6 and  9-11 to 9.
+
+			#grid_exp = 3*int(np.log(grid_size)/3)
+			grid_exp = 3*(int(np.log10(grid_size))//3) #Maps 0-2 to 0, 3-5 to 3, 6-8 to 6 and  9-11 to 9.
 			grid_suffix = datasuffixes.get(grid_exp)
-			
+
 			#Shifts the size down to the appropriate order of magnitude and rounds to no decimals.
 			grid_size *= 1./(10**(grid_exp))
-			grid_size = int(round(grid_size,0))
+			grid_size = int(round(grid_size))
 
 			print("Grid should take up roughly "+str(grid_size)+" "+grid_suffix+" in memory.")
 
@@ -465,7 +468,7 @@ def write_image(fullname,image_file_ext,result,has_imageio,duration=1,debug=Fals
 	if(has_imageio):
 		if(debug):
 			print(" using imageio...")
-			print("saving "+fullname+image_file_ext+"...")
+			print("  saving "+fullname+image_file_ext+"...")
 		if(frames == 1):
 			imageio.imwrite(fullname+image_file_ext,result[0])
 		elif(frames > 1):
@@ -549,7 +552,7 @@ if(__name__ == "__main__"):
 	pathdelim = "\\" if sys.platform == "win32" else "/"	
 	
 	#Generate the file name to save the image as.
-	colorname = "_color" if colorize else "_bw"
+	colorname = "_colour" if colorize else "_bw"
 
 	blurname = "_blur="+str(radius) if blur else ""
 
