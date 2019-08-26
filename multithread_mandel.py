@@ -627,6 +627,7 @@ if(__name__ == "__main__"):
 	#Save an image.
 	if(saveimage):
 		filename = path+pathdelim+"mandelbrot_"+str(iters)+"_iters"+colorname+ssaaname+eval_type+blurname+gammaname
+		filename = "m"
 		success = write_image(filename,image_file_ext,result,has_imageio,duration=duration,debug=debug)
 
 		if(not success):
