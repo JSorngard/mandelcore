@@ -59,7 +59,7 @@ radius = 1 #Integer. The radius of the gaussian blur.
 #Compute each pixel multiple times in different locations to smooth jaggies.
 ssaa = True
 #The number of sampled points along each dimension for each pixel.
-ssfactor = 5 #Integer. The computation will run slower by a factor of this number squared.
+ssfactor = 3 #Integer. The computation will run slower by a factor of this number squared.
 
 #Make the image in color. Only relevant if saveimage is True.
 colorize = True
@@ -73,7 +73,7 @@ frames = 1 #The number of frames before full zoom is achieved.
 duration = 1 #The number of seconds the animation should last for.
 
 #Raises the result of the mandelbrot iterations to this number.
-gamma = .75 #Closer to 0 means a darker image.
+gamma = 1 #Closer to 0 means a darker image.
 #I take no artistic responsibillity for numbers larger than 1.
 #Due to how coloring works too low gamma will result in weirdness.
 #0.5 works, 0.4 does not. 0.75 looks nice.
