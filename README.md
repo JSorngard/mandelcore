@@ -4,7 +4,7 @@ Generates a plot of the mandelbrot set using all available cpu cores. Does the i
 
 Command line arguments:  
 -c CENTER, --center CENTER  
-    Specify the point in the complex plane to center the image on. Defaults to -75.
+    Specify the point in the complex plane to center the image on. Defaults to -0.75.
 
 -y YRESOLUTION, --yresolution YRESOLUTION  
     Specify the number of pixels along the y-axis. Defaults to 1440.
