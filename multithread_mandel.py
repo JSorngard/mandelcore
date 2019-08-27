@@ -113,7 +113,8 @@ compress_level = 6
 
 #Define the different possible command line paramters.
 parser = argparse.ArgumentParser(description="Computes and saves an image of the mandelbrot set.")
-parser.add_argument("-c","--center",required=False,type=complex,default=fractal_center,help="Specify the point in the complex plane to center the image on. Defaults to "+str(fractal_center)+".")
+parser.add_argument("-cr","--Rcenter",required=False,type=float,default=np.real(fractal_center),help="Specify the real part of the point in the complex plane to center the image on. Defaults to "+str(np.real(fractal_center))+".")
+parser.add_argument("-ci","--Icenter",required=False,type=float,default=np.imag(fractal_center),help="Specify the imaginary part of the point in the complex plane to center the image on. Defaults to "+str(np.imag(fractal_center))+".")
 parser.add_argument("-y","--yresolution",required=False,type=int,default=im_eval_points,help="Specify the y-axis resolution of the image. Defaults to "+str(im_eval_points)+".")
 parser.add_argument("-r","--aspectratio",required=False,type=float,default=aspect_ratio,help="Specifies the aspect ratio of the image. Defaults to "+str(aspect_ratio)+".")
 parser.add_argument("-z","--zoom",required=False,type=float,default=1.,help="The zoom in factor to reach.")
@@ -133,6 +134,7 @@ parser.add_argument("--debug",required=False,action="store_true",help="Use this 
 args=vars(parser.parse_args())
 
 #Put them in appropriate variables.
+fractal_center = args["Rcenter"]+1j*args["Icenter"]
 aspect_ratio = args["aspectratio"]
 im_eval_points = args["yresolution"]
 re_eval_points = int(round(aspect_ratio*im_eval_points))
@@ -149,7 +151,6 @@ image_file_ext = args["fileextension"]
 compress_level = args["compresslevel"]
 saveresult = args["saveresult"]
 saveimage = args["noimage"]
-fractal_center = args["center"]
 debug = args["debug"]
 
 if(not has_imageio and frames > 1):
@@ -200,6 +201,21 @@ if(has_numba and cpu_cores > 1 and im_eval_points >= 4000):
 else:
 	def powah(array,power):
 		return np.power(array,power)
+
+#Takes in a quantity, shortens it and adds on the appropriate SI suffix.
+def quantity_suffix(size):
+
+	datasuffixes = {
+		0: "",
+		3: "k",
+		6: "M",
+		9: "G",
+		12: "T" #Please don't ever need this.
+	}
+
+	exponent = 3*(int(np.log10(size))//3)
+
+	return str(round(size/10**(exponent),1))[:5]+" "+datasuffixes.get(exponent)
 
 def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=False,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=False):
 
@@ -256,13 +272,13 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 		if(memory_debug and debug):
 			
 			#Dict to generate the appropriate suffixes.
-			datasuffixes = {
-				0: "B",
-				3: "kB",
-				6: "MB",
-				9: "GB",
-				12: "TB" #Please don't ever need this.
-			}
+			#datasuffixes = {
+			#	0: "B",
+			#	3: "kB",
+			#	6: "MB",
+			#	9: "GB",
+			#	12: "TB" #Please don't ever need this.
+			#}
 			
 			#Compute the size of the grid.		
 			grid_shape = np.shape(grid)
@@ -271,14 +287,14 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 			grid_size = elements*cmplx_size
 
 			#grid_exp = 3*int(np.log(grid_size)/3)
-			grid_exp = 3*(int(np.log10(grid_size))//3) #Maps 0-2 to 0, 3-5 to 3, 6-8 to 6 and  9-11 to 9.
-			grid_suffix = datasuffixes.get(grid_exp)
+			#grid_exp = 3*(int(np.log10(grid_size))//3) #Maps 0-2 to 0, 3-5 to 3, 6-8 to 6 and  9-11 to 9.
+			#grid_suffix = datasuffixes.get(grid_exp)
 
 			#Shifts the size down to the appropriate order of magnitude and rounds to no decimals.
-			grid_size *= 1./(10**(grid_exp))
-			grid_size = int(round(grid_size))
+			#grid_size *= 1./(10**(grid_exp))
+			#grid_size = int(round(grid_size))
 
-			print("Grid should take up roughly "+str(grid_size)+" "+grid_suffix+" in memory.")
+			print("Grid should take up roughly "+quantity_suffix(grid_size)+"B in memory.")
 
 		if(multicore):
 			cores = mp.cpu_count()
@@ -419,6 +435,11 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 
 				colourized = None
 			else:
+				if(colour_shift):
+					if(debug):
+						print(" scaling")
+					result = np.multiply(result,.98/np.max(result))
+					
 				if(debug):
 					print(" fitting to color depth...")
 				#Scale up to 0-depth.
@@ -520,6 +541,8 @@ def write_image(fullname,image_file_ext,result,has_imageio,duration=1,debug=Fals
 	time = get_time() - time
 	
 	if(debug):
+		size = os.stat(fullname+image_file_ext).st_size
+		print(" saved "+fullname+image_file_ext+" with size "+quantity_suffix(size)+"B.")
 		print("Done in "+str(time)[:4]+" seconds.\n")
 	
 	return 1	
