@@ -439,7 +439,7 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 					if(debug):
 						print(" scaling")
 					result = np.multiply(result,.98/np.max(result))
-					
+
 				if(debug):
 					print(" fitting to color depth...")
 				#Scale up to 0-depth.
@@ -578,8 +578,6 @@ if(__name__ == "__main__"):
 	
 	total_time = get_time()
 	
-	print("START")
-
 	#Determines whether to use \ or / for file paths.
 	pathdelim = "\\" if sys.platform == "win32" else "/"	
 	
@@ -638,7 +636,7 @@ if(__name__ == "__main__"):
 			exit()
 
 		if(debug and frames > 1):
-			print("---Frame finished in "+str(get_time() - time)[:4]+" seconds---")
+			print("---Frame finished in "+str(get_time() - time)[:4]+" seconds---\n")
 
 		#Save the generated image.
 		result.append(frame)
@@ -669,4 +667,3 @@ if(__name__ == "__main__"):
 	result = None
 
 	print("Total time consumption: "+str(get_time() - total_time)[:5]+" seconds.")
-	print("END")
