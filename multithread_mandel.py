@@ -245,7 +245,7 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 		
 		if(debug):
 			time = get_time() - time
-			print("Done in "+str(time)[:4]+" seconds.")
+			print("Done in "+str(time)[:4]+" seconds.\n")
 		
 
 		if(memory_debug and debug):
@@ -302,7 +302,7 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 				
 				if(debug):
 					time = get_time() - time
-					print("Done in "+str(time)[:4]+" seconds.")			
+					print("Done in "+str(time)[:4]+" seconds.\n")			
 
 			else:
 				#Create a pool with the number of threads equal to the number of processor cores.
@@ -321,7 +321,7 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 				
 				if(debug):
 					time = get_time() - time
-					print("Done in "+str(time)[:4]+" seconds.")
+					print("Done in "+str(time)[:4]+" seconds.\n")
 
 		else:
 			if(debug):
@@ -339,7 +339,7 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 			
 			if(debug):
 				time = get_time() - time
-				print("Done in "+str(time)[:4]+" seconds.")
+				print("Done in "+str(time)[:4]+" seconds.\n")
 		
 
 		grid = None #Removes the grid of complex values from memory.
@@ -448,7 +448,7 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 					time = get_time() - time
 					#Need an extra digit of precision if the image is small.
 					accuracy = 4 if im_eval_points > 200 else 5
-					print("Done in "+str(time)[:accuracy]+" seconds.")
+					print("Done in "+str(time)[:accuracy]+" seconds.\n")
 
 		return result
 	
@@ -511,7 +511,7 @@ def write_image(fullname,image_file_ext,result,has_imageio,duration=1,debug=Fals
 	time = get_time() - time
 	
 	if(debug):
-		print("Done in "+str(time)[:4]+" seconds.")
+		print("Done in "+str(time)[:4]+" seconds.\n")
 	
 	return 1	
 
@@ -538,7 +538,7 @@ def write_data(fullname,data_file_ext,result,debug=False):
 	
 	if(debug):
 		time = get_time() - time
-		print("Done in "+str(time)[:4]+" seconds.")
+		print("Done in "+str(time)[:4]+" seconds.\n")
 	return 1
 
 
@@ -611,7 +611,7 @@ if(__name__ == "__main__"):
 		#Save the generated image.
 		result.append(frame)
 
-		print("")
+		
 
 	#Clear up some memory.
 	frame = None

@@ -23,10 +23,10 @@ Command line arguments:
     The number of frames until the full zoom is achieved.
 
 -g GAMMA, --gamma GAMMA  
-    Raise the output of the mandelbrot iterations to this number. Works as a gamma between .4 and 1. Defaults to 0.75.
+    Raise the output of the mandelbrot iterations to this number. Works as a gamma between .4 and 1. Defaults to 1.
 
 -s SSAAFACTOR, --ssaafactor SSAAFACTOR  
-    Supersample each pixel this many times per axis. If set to 1, no supersampling will be used. Defaults to 5.
+    Supersample each pixel this many times per axis. If set to 1, no supersampling will be used. Defaults to 3.
 
 -e FILEEXTENSION, --fileextension FILEEXTENSION  
     Set the file extension of the generated image to this (include the dot). Defaults to .bmp.  
@@ -39,7 +39,7 @@ Command line arguments:
     Use this argument if you want more detailed information on the computation.  
     Is on by default if making only one image.
 
-.
+---
 
 Compile mandel_subroutine.f90 as:  
 f2py -c mandel_subroutine.f90 -m mandelfortran --f90flags="-fopenmp" -lgomp
