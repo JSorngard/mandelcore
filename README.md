@@ -32,6 +32,9 @@ Command line arguments:
     Set the file extension of the generated image to this (include the dot). Defaults to .bmp.  
     Ignored if frames is set to a number larger than 1, in which case it is set to .gif.
 
+-l COMPRESSLEVEL, --compresslevel COMPRESSLEVEL  
+    Set the compression level to use when saving the image if the file extension has been set to png.
+
 --saveresult  
     Use this argument if you want to save the result of the iterations to a .dat.gz file.
 
