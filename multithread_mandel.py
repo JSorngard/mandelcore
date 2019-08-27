@@ -108,6 +108,9 @@ memory_debug = True
 #Set to true if you want the fastest escaping point to always be blue.
 colour_shift = False
 
+#The default compression level for a png image. 0 if fast but large, 9 is slow but small.
+compress_level = 0
+
 #Define the different possible command line paramters.
 parser = argparse.ArgumentParser(description="Computes and saves an image of the mandelbrot set.")
 parser.add_argument("-c","--center",required=False,type=complex,default=fractal_center,help="Specify the point in the complex plane to center the image on. Defaults to "+str(fractal_center)+".")
@@ -121,6 +124,7 @@ parser.add_argument("-d","--duration",required=False,type=float,default=duration
 parser.add_argument("-g","--gamma",required=False,type=float,default=gamma,help="Raises the output of the mandelbrot iterations to this number. Works as a gamma between 0.4 and 1.")
 parser.add_argument("-s","--ssaafactor",required=False,type=int,default=ssfactor,help="Supersample each pixel this many times squared. Defaults to "+str(ssfactor)+". If 1, no SSAA will be computed.")
 parser.add_argument("-e","--fileextension",required=False,default=image_file_ext,help="Set the file extension of the generated image. Defaults to "+image_file_ext[1:]+".")
+parser.add_argument("-l","--compresslevel",required=False,type=int,default=compress_level,help="Specify the compression level of the image if the file extension is set to png. Defaults to "+str(compress_level)+".")
 parser.add_argument("--saveresult",required=False,action="store_true",help="Use this argument if you want to save the results of the mandelbrot iterations to a "+data_file_ext+" file.")
 parser.add_argument("--noimage",required=False,action="store_false",help="Use this argument if you do not want the program to output an image file.")
 parser.add_argument("--debug",required=False,action="store_true",help="Use this argument if you want more detailed information on the computation. Will be on if only generating one image.")
@@ -142,6 +146,7 @@ colour_shift = args["colourshift"]
 frames = args["frames"]
 duration = args["duration"]
 image_file_ext = args["fileextension"]
+compress_level = args["compresslevel"]
 saveresult = args["saveresult"]
 saveimage = args["noimage"]
 fractal_center = args["center"]
@@ -452,7 +457,7 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 
 		return result
 	
-def write_image(fullname,image_file_ext,result,has_imageio,duration=1,debug=False):
+def write_image(fullname,image_file_ext,result,has_imageio,duration=1,debug=False,compress_level=compress_level):
 	print("Writing image...")
 	time = get_time()
 
@@ -470,7 +475,11 @@ def write_image(fullname,image_file_ext,result,has_imageio,duration=1,debug=Fals
 			print(" using imageio...")
 			print("  saving "+fullname+image_file_ext+"...")
 		if(frames == 1):
-			imageio.imwrite(fullname+image_file_ext,result[0])
+			if(image_file_ext == ".png"):
+				imageio.imwrite(fullname+image_file_ext,result[0],compress_level=compress_level) #Higher compress level oes not seem to do much for the file size.
+			else:
+				imageio.imwrite(fullname+image_file_ext,result[0])
+
 		elif(frames > 1):
 			imageio.mimwrite(fullname+image_file_ext,result,duration=duration/frames)
 	elif(frames == 1):
