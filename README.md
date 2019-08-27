@@ -35,6 +35,9 @@ Command line arguments:
 -l COMPRESSLEVEL, --compresslevel COMPRESSLEVEL  
     Set the compression level to use when saving the image if the file extension has been set to png.
 
+--noimage  
+    Use this argument if you do not want to save an image file.
+
 --saveresult  
     Use this argument if you want to save the result of the iterations to a .dat.gz file.
 
