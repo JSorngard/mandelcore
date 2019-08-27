@@ -109,7 +109,7 @@ memory_debug = True
 colour_shift = False
 
 #The default compression level for a png image. 0 if fast but large, 9 is slow but small.
-compress_level = 0
+compress_level = 6
 
 #Define the different possible command line paramters.
 parser = argparse.ArgumentParser(description="Computes and saves an image of the mandelbrot set.")
