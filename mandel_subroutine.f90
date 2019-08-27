@@ -184,22 +184,37 @@ integer :: i,j,k
 
 invfactor = 1.d0/real(samplingfactor,kind=8)
 
-!$OMP parallel do shared(grid) private(total,esc,coloffset,rowoffset)
-do j=1,m
-    do i=1,n
-        total = 0.d0
-        do k=1,samplingfactor**2
-            !Computes offsets. These should range from -1/samplingfactor
-            !to 1/samplingfactor with a 0 included if samplingfator is odd.
-            coloffset = (real(mod(k,samplingfactor),kind=8)-1.d0)*invfactor
-            rowoffset = (real((k-1)/samplingfactor,kind=8)-1.d0)*invfactor
-            esc = mandel_calc_scaled(dble(grid(i,j))+rowoffset*deltar,imag(grid(i,j))+coloffset*deltai,maxiters,depth)
-            total = total + esc**2.d0
+if(m < 300) then
+    do j=1,m
+        do i=1,n
+            total = 0.d0
+            do k=1,samplingfactor**2
+                !Computes offsets. These should range from -1/samplingfactor
+                !to 1/samplingfactor with a 0 included if samplingfator is odd.
+                coloffset = (real(mod(k,samplingfactor),kind=8)-1.d0)*invfactor
+                rowoffset = (real((k-1)/samplingfactor,kind=8)-1.d0)*invfactor
+                esc = mandel_calc_scaled(dble(grid(i,j))+rowoffset*deltar,imag(grid(i,j))+coloffset*deltai,maxiters,depth)
+                total = total + esc**2.d0
+            end do
+            grid(i,j) = total/real(samplingfactor**2,kind=8)
         end do
-        grid(i,j) = total/real(samplingfactor**2,kind=8)
     end do
-end do
-!$OMP end parallel do
+else    
+    !$OMP parallel do shared(grid) private(total,esc,coloffset,rowoffset)
+    do j=1,m
+        do i=1,n
+            total = 0.d0
+            do k=1,samplingfactor**2
+                coloffset = (real(mod(k,samplingfactor),kind=8)-1.d0)*invfactor
+                rowoffset = (real((k-1)/samplingfactor,kind=8)-1.d0)*invfactor
+                esc = mandel_calc_scaled(dble(grid(i,j))+rowoffset*deltar,imag(grid(i,j))+coloffset*deltai,maxiters,depth)
+                total = total + esc**2.d0
+            end do
+            grid(i,j) = total/real(samplingfactor**2,kind=8)
+        end do
+    end do
+    !$OMP end parallel do
+end if
 
 
 end subroutine mandel_calc_array_scaled_supersampled
