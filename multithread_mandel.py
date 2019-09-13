@@ -237,6 +237,37 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 			print("Generating "+str(re_eval_points)+" by "+str(im_eval_points)+" grid...")
 			time = get_time()
 
+			
+			#Dict to generate the appropriate suffixes.
+			#datasuffixes = {
+			#	0: "B",
+			#	3: "kB",
+			#	6: "MB",
+			#	9: "GB",
+			#	12: "TB" #Please don't ever need this.
+			#}
+			
+			#Compute the size of the grid.		
+		elements = re_eval_points*im_eval_points
+		cmplx_size = sys.getsizeof(1+1j)
+		grid_size = elements*cmplx_size
+
+		if(memory_debug and debug):
+			print("Grid should take up roughly "+quantity_suffix(grid_size)+"B in memory.")
+
+		memory_size = os.sysconf("SC_PAGE_SIZE")*os.sysconf("SC_PHYS_PAGES")
+		if(grid_size > memory_size):
+			print("Grid too large for memory, attempting recursive split...")
+
+			aspect_ratio *= 0.5
+			print(" generating first half...")
+			half_one = mandelbrot(.5*(fractal_center-im_dist*aspect_ratio),im_dist,re_eval_points,im_eval_points,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=debug)
+			print(" generating second half...")
+			half_two = mandelbrot(.5*(fractal_center+im_dist*aspect_ratio),im_dist,re_eval_points,im_eval_points,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=debug)
+
+			return np.concatenate((half_one,half_two),axis=0)
+
+
 		re_points= np.linspace(np.real(start),np.real(end),re_eval_points)
 		deltar = re_points[1] - re_points[0]
 		if(mirror):
@@ -267,34 +298,6 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 		if(debug):
 			time = get_time() - time
 			print("Done in "+str(time)[:4]+" seconds.\n")
-		
-
-		if(memory_debug and debug):
-			
-			#Dict to generate the appropriate suffixes.
-			#datasuffixes = {
-			#	0: "B",
-			#	3: "kB",
-			#	6: "MB",
-			#	9: "GB",
-			#	12: "TB" #Please don't ever need this.
-			#}
-			
-			#Compute the size of the grid.		
-			grid_shape = np.shape(grid)
-			elements = grid_shape[0]*grid_shape[1]
-			cmplx_size = sys.getsizeof(1+1j)
-			grid_size = elements*cmplx_size
-
-			#grid_exp = 3*int(np.log(grid_size)/3)
-			#grid_exp = 3*(int(np.log10(grid_size))//3) #Maps 0-2 to 0, 3-5 to 3, 6-8 to 6 and  9-11 to 9.
-			#grid_suffix = datasuffixes.get(grid_exp)
-
-			#Shifts the size down to the appropriate order of magnitude and rounds to no decimals.
-			#grid_size *= 1./(10**(grid_exp))
-			#grid_size = int(round(grid_size))
-
-			print("Grid should take up roughly "+quantity_suffix(grid_size)+"B in memory.")
 
 		if(multicore):
 			cores = mp.cpu_count()
