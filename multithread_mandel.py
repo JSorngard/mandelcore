@@ -255,16 +255,19 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 		if(memory_debug and debug):
 			print("Grid should take up roughly "+quantity_suffix(grid_size)+"B in memory.")
 
+		#This code splits the image in two if the complex number grid needed for the iterations
+		#are too large for the memory. Does this recursively.
+		#The memory must still be large enough to fit the complete result of the iterations.
 		memory_size = os.sysconf("SC_PAGE_SIZE")*os.sysconf("SC_PHYS_PAGES")
 		if(grid_size > memory_size):
-			print("Grid too large for memory, attempting recursive split...")
+			print("\nWarning: grid too large for memory, attempting recursive split...")
 
 			aspect_ratio *= 0.5
-			print(" generating first half...")
-			half_one = mandelbrot((fractal_center-im_dist*aspect_ratio)/2,im_dist,re_eval_points/4.,im_eval_points,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=debug)
-			print(" generating second half...")
-			half_two = mandelbrot((fractal_center+im_dist*aspect_ratio)/2,im_dist,re_eval_points/4.,im_eval_points,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=debug)
-			print(" combining parts...")
+			print("--Generating first half--")
+			half_one = mandelbrot((fractal_center-im_dist*aspect_ratio)/2,im_dist,re_eval_points/2.,im_eval_points*2.,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=debug)
+			print("--Generating second half--")
+			half_two = mandelbrot((fractal_center+im_dist*aspect_ratio)/2,im_dist,re_eval_points/2.,im_eval_points*2.,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=debug)
+			print("--Combining parts--")
 			return np.concatenate((half_one,half_two),axis=1)
 
 
