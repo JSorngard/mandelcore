@@ -261,11 +261,11 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 
 			aspect_ratio *= 0.5
 			print(" generating first half...")
-			half_one = mandelbrot(.5*(fractal_center-im_dist*aspect_ratio),im_dist,re_eval_points,im_eval_points,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=debug)
+			half_one = mandelbrot((fractal_center-im_dist*aspect_ratio)/2,im_dist,re_eval_points/4.,im_eval_points,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=debug)
 			print(" generating second half...")
-			half_two = mandelbrot(.5*(fractal_center+im_dist*aspect_ratio),im_dist,re_eval_points,im_eval_points,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=debug)
-
-			return np.concatenate((half_one,half_two),axis=0)
+			half_two = mandelbrot((fractal_center+im_dist*aspect_ratio)/2,im_dist,re_eval_points/4.,im_eval_points,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=debug)
+			print(" combining parts...")
+			return np.concatenate((half_one,half_two),axis=1)
 
 
 		re_points= np.linspace(np.real(start),np.real(end),re_eval_points)
