@@ -247,13 +247,13 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 			#	12: "TB" #Please don't ever need this.
 			#}
 			
-			#Compute the size of the grid.		
+		#Compute the size of the grid.
 		elements = re_eval_points*im_eval_points
 		cmplx_size = sys.getsizeof(1+1j)
 		grid_size = elements*cmplx_size
 
 		if(memory_debug and debug):
-			print("Grid should take up roughly "+quantity_suffix(grid_size)+"B in memory.")
+			print(" grid should take up roughly "+quantity_suffix(grid_size)+"B in memory.")
 
 		#This code splits the image in two if the complex number grid needed for the iterations
 		#are too large for the memory. Does this recursively.
@@ -264,10 +264,19 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 
 			aspect_ratio *= 0.5
 			print("--Generating first half--")
-			#print((fractal_center-im_dist*aspect_ratio)/2.)
 			half_one = mandelbrot((2*fractal_center-im_dist*aspect_ratio)/(2.*zoom),im_dist,re_eval_points/2.,im_eval_points*2.,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=debug)
+
+			if(type(half_one) == int and half_one == 0):
+				half_one = None
+				exit()
+
 			print("--Generating second half--")
 			half_two = mandelbrot((2*fractal_center+im_dist*aspect_ratio)/(2.*zoom),im_dist,re_eval_points/2.,im_eval_points*2.,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=debug)
+
+			if(type(half_two) == int and half_two == 0):
+				half_two = None
+				exit()
+
 			print("--Combining parts--")
 			return np.concatenate((half_one,half_two),axis=1)
 
