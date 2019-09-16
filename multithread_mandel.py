@@ -29,6 +29,8 @@ depth = 255 #Integer. Set to 255 if using colorize.
 iters = depth #Integer
 
 #Sets the aspect ratio of the image.
+#aspect_ratio = 21./9.
+#aspect_ratio = 16./9.
 aspect_ratio = 3./2.
 
 #Defines parameters needed to determine the "window" to look at the fractal in.
@@ -36,14 +38,16 @@ im_dist = 8./3. #The distance along the imaginary axis where the fractal is.
 fractal_center = -3./4.+0j #The point to center the view on.
 
 #Number of points per axis to compute.
-im_eval_points = 1440 #y-axis. Must be an even integer.
+im_eval_points = 2160 #y-axis. Must be an even integer.
+#im_eval_points = 1440
+#im_eval_points = 1080
 
 #Compute it multithreaded.
 multicore = True
 
 #The method of parallelization.
 #If true it will be openmp in Fortran, otherwise multiprocessing in python.
-#Fortran is ~100 times faster.
+#Fortran is ~100 to ~1000 times faster.
 fortran_omp = True
 
 #Save the result as an image.
@@ -128,7 +132,7 @@ parser.add_argument("-e","--fileextension",required=False,default=image_file_ext
 parser.add_argument("-l","--compresslevel",required=False,type=int,default=compress_level,help="Specify the compression level of the image if the file extension is set to png. Defaults to "+str(compress_level)+".")
 parser.add_argument("--saveresult",required=False,action="store_true",help="Use this argument if you want to save the results of the mandelbrot iterations to a "+data_file_ext+" file.")
 parser.add_argument("--noimage",required=False,action="store_false",help="Use this argument if you do not want the program to output an image file.")
-parser.add_argument("--debug",required=False,action="store_true",help="Use this argument if you want more detailed information on the computation. Will be on if only generating one image.")
+parser.add_argument("-v","--verbose",required=False,action="store_true",help="Use this argument if you want more detailed information on the computation.")
 
 #Extract the given arguments.
 args=vars(parser.parse_args())
@@ -151,7 +155,7 @@ image_file_ext = args["fileextension"]
 compress_level = args["compresslevel"]
 saveresult = args["saveresult"]
 saveimage = args["noimage"]
-debug = args["debug"]
+debug = args["verbose"]
 
 if(not has_imageio and frames > 1):
 	print("Since the number of requested frames is larger than one, the output file type has been set to gif. But this computer does not have imageio installed, and PIL can not save gifs. Install imageio, or request only one image, and try again.")
@@ -401,6 +405,7 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 				#else:
 				try:
 			 		result = powah(result,gamma)
+			 		#result = mandelfortran.multicore_pow(result,gamma)
 				except MemoryError:
 					print("Out of memory when changing gamma.")
 					result = None
@@ -495,7 +500,9 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 		return result
 	
 def write_image(fullname,image_file_ext,result,has_imageio,duration=1,debug=False,compress_level=compress_level):
-	print("Writing image...")
+	if(debug):
+		print("Writing image...")
+
 	time = get_time()
 
 	#Find the number of separate images in the result array.
@@ -564,7 +571,9 @@ def write_image(fullname,image_file_ext,result,has_imageio,duration=1,debug=Fals
 	return 1	
 
 def write_data(fullname,data_file_ext,result,debug=False):
-	print("Writing raw data...")
+	if(debug):
+		print("Writing raw data...")
+
 	if(data_file_ext[-3:] == ".gz" and debug):
 		print(" compressing...")
 	if(debug):
@@ -618,8 +627,8 @@ if(__name__ == "__main__"):
 	#are both allowed.
 
 	#Always print details when making a single image.
-	if(frames == 1):
-		debug = True
+	#if(frames == 1):
+	#	debug = True
 
 	if(not saveresult and not saveimage):
 		print("Note: program will produce no output.")
@@ -627,7 +636,7 @@ if(__name__ == "__main__"):
 	result = []
 	for i in range(frames):
 
-		if(frames > 1):
+		if(frames > 1 and debug):
 			print("---Generating frame "+str(i+1)+"/"+str(frames)+", "+str(100*float(i+1)/float(frames))[:5]+"%---")
 		
 		if(frames == 1):
@@ -682,4 +691,5 @@ if(__name__ == "__main__"):
 	#Clear memory.
 	result = None
 
-	print("Total time consumption: "+str(get_time() - total_time)[:5]+" seconds.")
+	if(debug):
+		print("Total time consumption: "+str(get_time() - total_time)[:5]+" seconds.")
