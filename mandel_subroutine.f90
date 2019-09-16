@@ -219,6 +219,17 @@ end if
 
 end subroutine mandel_calc_array_scaled_supersampled
 
+
+!impure elemental subroutine pow(base,exponent)
+!implicit none
+!  !  $    OMP declare simd(pow) uniform(exponent)
+!real*8, intent(inout) :: base
+!f2py,intent(in,out) :: base
+!real*8, intent(in) :: exponent
+!base = base**exponent
+!end subroutine pow
+
+
 subroutine multicore_pow(array,exponent,n,m)
 !Returns the input array with every element raised to the power of exponent.
 !Computes this in multiple threads, so this should only be used on large arrays.
@@ -230,17 +241,27 @@ real*8,dimension(n,m),intent(inout) :: array
 real*8,intent(in) :: exponent
 integer :: i,j
 
+!interface
+!    impure elemental subroutine pow(base,exponent)
+!        !$OMP declare simd(pow) uniform(exponent)
+!        real*8,intent(inout) :: base
+        !f2py, intent(in,out) :: base
+!        real*8,intent(in) :: exponent
+!    end subroutine pow
+!end interface
+
 !If exponent=1 we don't need to do anything.
 if(exponent == 1.d0) then
     return
 end if
 
-!$OMP parallel do simd shared(array)
+!$OMP parallel shared(array)
 do j=1,m
     do i=1,n
+        !call pow(array(n,m),exponent)
         array(n,m) = array(n,m)**exponent
     end do
 end do
-!$OMP end parallel do simd
+!$OMP end parallel
 
 end subroutine multicore_pow
