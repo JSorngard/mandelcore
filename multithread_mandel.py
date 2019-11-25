@@ -244,10 +244,9 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 			print("Generating "+str(re_eval_points)+" by "+str(im_eval_points)+" grid...")
 			time = get_time()
 			
-			grid_size = (re_eval_points+im_eval_points)*sys.getsizeof(1.)
-
-			if memory_debug:
-				print(" grid should take up roughly "+quantity_suffix(grid_size)+"B in memory.")
+			grid_size = np.ones((re_eval_points,im_eval_points,3)).nbytes
+			if mirror:
+				grid_size *= 2
 
 
 		#Generates two 1d arrays, one for the real parts and one for the imaginary parts
@@ -267,7 +266,14 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 		
 		if debug:
 			time = get_time() - time
+			
+			grid_size += re_points.nbytes + im_points.nbytes
+
+			if memory_debug:
+				print(" fractal grid should take up roughly "+quantity_suffix(grid_size)+"B in memory.")
+			
 			print("Done in "+str(time)[:4]+" seconds.\n")
+			
 
 #----------------------------Fractal evaluation section----------------------------------
 
