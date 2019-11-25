@@ -138,7 +138,7 @@ parser.add_argument("-v","--verbose",required=False,action="store_true",help="Us
 args=vars(parser.parse_args())
 
 #Put them in appropriate variables.
-fractal_center = args["Rcenter"]+1j*args["Icenter"]
+fractal_center = args["Rcenter"]-1j*args["Icenter"]
 aspect_ratio = args["aspectratio"]
 im_eval_points = args["yresolution"]
 re_eval_points = int(round(aspect_ratio*im_eval_points))
