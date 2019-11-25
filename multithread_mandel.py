@@ -144,7 +144,7 @@ im_eval_points = args["yresolution"]
 re_eval_points = int(round(aspect_ratio*im_eval_points))
 gamma = args["gamma"]
 ssfactor = args["ssaafactor"]
-if(ssfactor == 1):
+if ssfactor == 1:
 	ssaa = False
 zoom = args["zoom"]
 colorize = args["blackwhite"]
@@ -157,7 +157,7 @@ saveresult = args["saveresult"]
 saveimage = args["noimage"]
 debug = args["verbose"]
 
-if(not has_imageio and frames > 1):
+if not has_imageio and frames > 1:
 	print("Since the number of requested frames is larger than one, the output file type has been set to gif. But this computer does not have imageio installed, and PIL can not save gifs. Install imageio, or request only one image, and try again.")
 	exit()
 
@@ -173,7 +173,7 @@ get_time = time.perf_counter if sys.platform == "win32" else time.time
 #Determines the working directory of the program.
 path = os.path.dirname(os.path.abspath(__file__))
 """
-if(not fortran_omp):
+if not fortran_omp:
 	def mandel_func(c,maxiterations=iters,colordepth=float(depth)):
 		#Takes a complex number and iterates the mandelbrot function on it until either its magnitude is larger than six (2 gives worse colour fade), or it has iterated enough.
 		x = np.real(c)
@@ -183,7 +183,7 @@ if(not fortran_omp):
 		mag2=x**2. + y2
 
 		#Filter out all points inside the main bulb and the period-2 bulb.
-		if((x + 1.)**2 + y2 < 0.0625 or mag2*(8.*mag2-3.) <= .09375 - x):
+		if (x + 1.)**2 + y2 < 0.0625 or mag2*(8.*mag2-3.) <= .09375 - x:
 			return 0.
 
 		z = 0.+0.j
@@ -199,7 +199,7 @@ if(not fortran_omp):
 #Makes exponentiation multicore if applicable on current machine
 #and beneficial for the problem size.
 cpu_cores = mp.cpu_count()
-if(has_numba and cpu_cores > 1 and im_eval_points >= 4000):
+if has_numba and cpu_cores > 1 and im_eval_points >= 4000:
 	@njit(parallel=True)
 	def powah(array,power):
 		return np.power(array,power)
@@ -257,7 +257,7 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 		deltar = re_points[1] - re_points[0]
 		
 		#Imaginary parts
-		if(mirror):
+		if mirror:
 			im_points= np.linspace(0,np.imag(end),im_eval_points)
 		else:
 			im_points= np.linspace(np.imag(start),np.imag(end),im_eval_points)
@@ -279,7 +279,7 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 
 		cores = mp.cpu_count()
 		if debug:
-			if(im_eval_points < 300): #The 300 limit is hard coded into the fortran code as of right now.
+			if im_eval_points < 300: #The 300 limit is hard coded into the fortran code as of right now.
 				print("Evaluating with a single core due to the image size...")
 			else:
 				print("Attempting to evaluate on "+str(cores)+" cores...")
@@ -346,7 +346,7 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 				try:
 					#Shifts the colouring so that the fastest escaping point is blue.
 					if colour_shift:
-						if(debug):
+						if debug:
 							print("  scaling...")
 						result = np.multiply(result,.98/np.max(result))
 					
@@ -410,7 +410,7 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 		return result
 	
 def write_image(fullname,image_file_ext,result,has_imageio,duration=1,debug=False,compress_level=compress_level):
-	if(debug):
+	if debug:
 		print("Writing image...")
 
 	time = get_time()
@@ -420,24 +420,24 @@ def write_image(fullname,image_file_ext,result,has_imageio,duration=1,debug=Fals
 	frames = len(result)
 	
 	#If we have generated multiple images we are making a gif.
-	if(frames > 1):
+	if frames > 1:
 		image_file_ext = ".gif"
 
 	#Write image to file.
-	if(has_imageio):
-		if(debug):
+	if has_imageio:
+		if debug:
 			print(" using imageio...")
 			print("  saving "+fullname+image_file_ext+"...")
-		if(frames == 1):
-			if(image_file_ext == ".png"):
+		if frames == 1:
+			if image_file_ext == ".png":
 				imageio.imwrite(fullname+image_file_ext,result[0],compress_level=compress_level) #Higher compress level oes not seem to do much for the file size.
 			else:
 				imageio.imwrite(fullname+image_file_ext,result[0])
 
-		elif(frames > 1):
+		elif frames > 1:
 			imageio.mimwrite(fullname+image_file_ext,result,duration=duration/frames)
-	elif(frames == 1):
-		if(debug):
+	elif frames == 1:
+		if debug:
 			print(" using PIL...")
 			print("  converting array to image object...")
 		try:
@@ -447,14 +447,14 @@ def write_image(fullname,image_file_ext,result,has_imageio,duration=1,debug=Fals
 			result = None
 			return 0
 
-		if(debug):
+		if debug:
 			print("  saving "+fullname+image_file_ext+"...")
 		result.save(fullname+image_file_ext,optimize=True,quality=85)
 
 	else:
 		print("Can not use PIL to save a gif. Try instaling imageio.")
 		return 0
-		if(debug):
+		if debug:
 			print(" using PIL...")
 			print("  converting arrays to image objects...")
 		try:
@@ -464,7 +464,7 @@ def write_image(fullname,image_file_ext,result,has_imageio,duration=1,debug=Fals
 			result = None
 			return 0
 		
-		if(debug):
+		if debug:
 			print("  saving "+fullname+image_file_ext+"...")
 		result[0].save(fullname+image_file_ext,format='GIF',save_all=True,append_images=result[1:],duration=duration/frames)
 		
@@ -473,7 +473,7 @@ def write_image(fullname,image_file_ext,result,has_imageio,duration=1,debug=Fals
 
 	time = get_time() - time
 	
-	if(debug):
+	if debug:
 		size = os.stat(fullname+image_file_ext).st_size
 		print(" saved "+fullname+image_file_ext+" with size "+quantity_suffix(size)+"B.")
 		print("Done in "+str(time)[:4]+" seconds.\n")
@@ -481,16 +481,16 @@ def write_image(fullname,image_file_ext,result,has_imageio,duration=1,debug=Fals
 	return 1	
 
 def write_data(fullname,data_file_ext,result,debug=False):
-	if(debug):
+	if debug:
 		print("Writing raw data...")
 
-	if(data_file_ext[-3:] == ".gz" and debug):
+	if data_file_ext[-3:] == ".gz" and debug:
 		print(" compressing...")
-	if(debug):
+	if debug:
 		time = get_time()
 
 	#Check if there is data from multiple frames to write.
-	if(len(np.shape(result)) == 4):
+	if len(np.shape(result)) == 4:
 		files = np.shape(result)[0]
 		print("  WARNING: writing data from multiple frames.")
 	else:
@@ -503,13 +503,13 @@ def write_data(fullname,data_file_ext,result,debug=False):
 		index_name = "_"+str(i+1) if files > 1 else ""
 		np.savetxt(fullname+index_name+data_file_ext,result,delimiter=' ')
 	
-	if(debug):
+	if debug:
 		time = get_time() - time
 		print("Done in "+str(time)[:4]+" seconds.\n")
 	return 1
 
 
-if(__name__ == "__main__"):
+if __name__ == "__main__":
 	
 	total_time = get_time()
 	
@@ -529,7 +529,7 @@ if(__name__ == "__main__"):
 	ssaaname = "_ssaax"+str(ssfactor**2) if ssaa else ""
 
 	#Avoid unneccesary work.
-	if(frames > 1 and zoom == 1):
+	if frames > 1 and zoom == 1:
 		frames = 1
 		print("More than one frame has been requested, but at no zoom. Generating one image instead.")
 	
@@ -537,19 +537,19 @@ if(__name__ == "__main__"):
 	#are both allowed.
 
 	#Always print details when making a single image.
-	#if(frames == 1):
+	#if frames == 1:
 	#	debug = True
 
-	if(not saveresult and not saveimage):
+	if not saveresult and not saveimage:
 		print("Note: program will produce no output.")
 
 	result = []
 	for i in range(frames):
 
-		if(frames > 1 and debug):
+		if frames > 1 and debug:
 			print("---Generating frame "+str(i+1)+"/"+str(frames)+", "+str(100*float(i+1)/float(frames))[:5]+"%---")
 		
-		if(frames == 1):
+		if frames == 1:
 			z = zoom
 		else:
 			#Computes the ammount of zoom in this frame. 
@@ -559,18 +559,18 @@ if(__name__ == "__main__"):
 			#z = (zoom-1)/(np.exp(frames)-1)*(np.exp(i)-1) + 1 #Jump scare at the end.
 			z = (zoom**(1/frames))**i #Constant relative speed.
 		
-		if(debug and frames > 1):
+		if debug and frames > 1:
 			time = get_time()
 
 		#Generate an RGB matrix of the fractal.
 		frame = mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio,z,debug=debug,colour_shift=colour_shift)
 		
 		#If the result of the computation is 0 there was an error.
-		if(type(frame) == int and frame == 0):
+		if type(frame) == int and frame == 0:
 			frame = None
 			exit()
 
-		if(debug and frames > 1):
+		if debug and frames > 1:
 			print("---Frame finished in "+str(get_time() - time)[:4]+" seconds---\n")
 
 		#Save the generated image.
@@ -582,24 +582,24 @@ if(__name__ == "__main__"):
 	frame = None
 
 	#Save the data as a file and not an image.
-	if(saveresult):
+	if saveresult:
 		filename = path+pathdelim+"mandel"+colorname+eval_type
 		success = write_data(filename,data_file_ext,result,debug=debug)	
 		
-		if(not success):
+		if not success:
 			exit()
 
 	#Save an image.
-	if(saveimage):
+	if saveimage:
 		filename = path+pathdelim+"mandelbrot_"+str(iters)+"_iters"+colorname+ssaaname+eval_type+blurname+gammaname
 		filename = "m"
 		success = write_image(filename,image_file_ext,result,has_imageio,duration=duration,debug=debug)
 
-		if(not success):
+		if not success:
 			exit()
 		
 	#Clear memory.
 	result = None
 
-	if(debug):
+	if debug:
 		print("Total time consumption: "+str(get_time() - total_time)[:5]+" seconds.")
