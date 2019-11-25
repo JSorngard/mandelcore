@@ -66,23 +66,24 @@ implicit none
 integer,intent(in) :: n,m,maxiters,depth
 real*8,intent(in),dimension(n) :: re
 real*8,intent(in),dimension(m) :: im
-real*8,intent(out),dimension(n,m) :: result
+real*8,intent(out),dimension(m,n) :: result
 
 real*8 :: mandel_calc_scaled
 integer :: i,j
 
 !If the image is small enough, spreading the work out on multiple cores is unnecesary and makes the computation slower.
 if(m < 300) then
-    do j=1,m
-        do i=1,n
-            result(i,j) = mandel_calc_scaled(re(i),im(j),maxiters,depth)
+    do i=1,n
+        do j=1,m
+            !(j,i) not (i,j) since python will read the result as transposed.
+            result(j,i) = mandel_calc_scaled(re(i),im(j),maxiters,depth)
         end do
     end do
 else
     !$OMP parallel do shared(result,re,im)
-    do j=1,m
-        do i=1,n
-            result(i,j) = mandel_calc_scaled(re(i),im(j),maxiters,depth)
+    do i=1,n
+        do j=1,m
+            result(j,i) = mandel_calc_scaled(re(i),im(j),maxiters,depth)
         end do
     end do
     !$OMP end parallel do
@@ -102,7 +103,7 @@ integer,intent(in) :: n,m,maxiters,depth,samplingfactor
 real*8,intent(in) :: deltar,deltai
 real*8,intent(in),dimension(n) :: re
 real*8,intent(in),dimension(m) :: im
-real*8,intent(out),dimension(n,m) :: result
+real*8,intent(out),dimension(m,n) :: result
 
 real*8 :: mandel_calc_scaled,total,coloffset,rowoffset,esc,invfactor
 integer :: i,j,k
@@ -110,8 +111,8 @@ integer :: i,j,k
 invfactor = 1.d0/real(samplingfactor,kind=8)
 
 if(m < 300) then
-    do j=1,m
-        do i=1,n
+    do i=1,n
+        do j=1,m
             total = 0.d0
             do k=1,samplingfactor**2
                 !Computes offsets. These should range from -1/samplingfactor
@@ -121,13 +122,13 @@ if(m < 300) then
                 esc = mandel_calc_scaled(re(i)+rowoffset*deltar,im(j)+coloffset*deltai,maxiters,depth)
                 total = total + esc**2.d0
             end do
-            result(i,j) = total/real(samplingfactor**2,kind=8)
+            result(j,i) = total/real(samplingfactor**2,kind=8)
         end do
     end do
 else    
     !$OMP parallel do shared(result,re,im) private(total,esc,coloffset,rowoffset)
-    do j=1,m
-        do i=1,n
+    do i=1,n
+        do j=1,m
             total = 0.d0
             do k=1,samplingfactor**2
                 coloffset = (real(mod(k,samplingfactor),kind=8)-1.d0)*invfactor
@@ -135,7 +136,7 @@ else
                 esc = mandel_calc_scaled(re(i)+rowoffset*deltar,im(j)+coloffset*deltai,maxiters,depth)
                 total = total + esc**2.d0
             end do
-            result(i,j) = total/real(samplingfactor**2,kind=8)
+            result(j,i) = total/real(samplingfactor**2,kind=8)
         end do
     end do
     !$OMP end parallel do

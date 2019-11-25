@@ -237,83 +237,39 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 			else:
 				print("Number of imaginary points must be even.")
 				return 0
+
+#----------------------------Grid generation section-------------------------------------
 		
 		if debug:
 			print("Generating "+str(re_eval_points)+" by "+str(im_eval_points)+" grid...")
 			time = get_time()
 			
-		#Compute the size of the grid.
-		elements = re_eval_points*im_eval_points
-		#cmplx_size = sys.getsizeof(1+1j)
-		real_size= sys.getsizeof(1.)
-		rgb_size = sys.getsizeof([255,255,255])
-		grid_size = (re_eval_points+im_eval_points)*real_size
-		image_size = elements*rgb_size
-		if mirror:
-			image_size *= 2
+			grid_size = (re_eval_points+im_eval_points)*sys.getsizeof(1.)
 
-		if(memory_debug and debug):
-			print(" grid should take up roughly "+quantity_suffix(grid_size)+"B in memory.")
-			print(" final image should be roughly"+quantity_suffix(image_size)+"B in size.")
+			if memory_debug:
+				print(" grid should take up roughly "+quantity_suffix(grid_size)+"B in memory.")
 
 
-		#This code splits the image in two if the number grid needed for the iterations
-		#are too large for the memory. Does this recursively.
-		#The memory must still be large enough to fit the complete result of the iterations.
-		#This code is only relevant if storing the complex numbers in an array instead of two lists.
-		#memory_size = os.sysconf("SC_PAGE_SIZE")*os.sysconf("SC_PHYS_PAGES")
-		#if(grid_size > memory_size):
-		#	print("\nWarning: grid too large for memory, attempting recursive split...")
-
-		#	aspect_ratio *= 0.5
-		#	print("--Generating first half--")
-		#	half_one = mandelbrot((2*fractal_center-im_dist*aspect_ratio)/(2.*zoom),im_dist,re_eval_points/2.,im_eval_points*2.,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=debug)
-
-		#	if(type(half_one) == int and half_one == 0):
-		#		half_one = None
-		#		exit()
-
-		#	print("--Generating second half--")
-		#	half_two = mandelbrot((2*fractal_center+im_dist*aspect_ratio)/(2.*zoom),im_dist,re_eval_points/2.,im_eval_points*2.,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=debug)
-
-		#	if(type(half_two) == int and half_two == 0):
-		#		half_two = None
-		#		exit()
-
-		#	print("--Combining parts--")
-		#	return np.concatenate((half_one,half_two),axis=1)
-
-
+		#Generates two 1d arrays, one for the real parts and one for the imaginary parts
+		#of all coordinates in the complex plane we want to compute the fractal for.
+		
+		#Real parts
 		re_points= np.linspace(np.real(start),np.real(end),re_eval_points)
 		deltar = re_points[1] - re_points[0]
+		
+		#Imaginary parts
 		if(mirror):
 			im_points= np.linspace(0,np.imag(end),im_eval_points)
 		else:
 			im_points= np.linspace(np.imag(start),np.imag(end),im_eval_points)
 		deltai = im_points[1] - im_points[0]
 
-		#re_grid,im_grid = np.meshgrid(re_points,im_points*1j,sparse=True)
-
-		#try:
-		#	grid = re_grid + im_grid
-		#except MemoryError:
-		#	print("Out of memory when allocating grid.")
-		#	grid = None
-		#	re_points = None
-		#	im_grid = None
-		#	im_points = None
-		#	im_grid = None
-		#	return 0
-
-		#re_points = None
-		#re_grid = None
-		#im_points = None
-		#im_grid = None
-
 		
 		if debug:
 			time = get_time() - time
 			print("Done in "+str(time)[:4]+" seconds.\n")
+
+#----------------------------Fractal evaluation section----------------------------------
 
 		cores = mp.cpu_count()
 		if debug:
@@ -340,11 +296,7 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 			time = get_time() - time
 			print("Done in "+str(time)[:4]+" seconds.\n")			
 
-#		grid = None #Removes the grid of complex values from memory.
-		
-		#Extract the real part of the output of the fortran subroutine.
-		#No information is lost since it only writes to the real part.
-		#result = np.real(result)
+#----------------------------Image post-processing section-------------------------------
 
 		if saveimage:
 			if debug:
@@ -355,11 +307,6 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 			if gamma != 1.:
 				if debug:
 					print(" changing gamma...")
-				#If the image is large enough we compute it multithreaded.
-				#Don't do this. WAY slower than np.power. Gotta love vectorization.
-				#if(im_eval_points > 5000):
-				#	result = mandelfortran.multicore_pow(result,gamma)
-				#else:
 				try:
 			 		result = powah(result,gamma)
 			 		#result = mandelfortran.multicore_pow(result,gamma)
