@@ -557,7 +557,7 @@ if __name__ == "__main__":
 			#z = 1 - i/frames + zoom*i**2/frames**2 #This slows down less.
 			#z = (zoom-1)/frames**2*i**2 + 1 #This is similar, but more efficient computation.
 			#z = (zoom-1)/(np.exp(frames)-1)*(np.exp(i)-1) + 1 #Jump scare at the end.
-			z = (zoom**(1/frames))**i #Constant relative speed.
+			z = (zoom**(1./frames))**i #Constant relative speed.
 		
 		if debug and frames > 1:
 			time = get_time()
