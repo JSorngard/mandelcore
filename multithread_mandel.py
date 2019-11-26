@@ -157,7 +157,7 @@ saveresult = args["saveresult"]
 saveimage = args["noimage"]
 debug = args["verbose"]
 
-if not has_imageio and frames > 1:
+if not has_imageio and frames > 1 and saveimage:
 	print("Since the number of requested frames is larger than one, the output file type has been set to gif. But this computer does not have imageio installed, and PIL can not save gifs. Install imageio, or request only one image, and try again.")
 	exit()
 
