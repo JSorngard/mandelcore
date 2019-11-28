@@ -347,17 +347,12 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 					#Shifts the colouring so that the fastest escaping point is blue.
 					if colour_shift:
 						if debug:
-							print("  scaling...")
+							print("  scaling for colour shift...")
 						result = np.multiply(result,.98/np.max(result))
-					
-					if debug:
-						print("  generating target...")
-					colourized = np.zeros((np.concatenate((np.shape(result),np.array([3])))),order='F')
-					
+										
 					if debug:
 						print("  computing colours...")
-					colourized = imagefortran.fcolour(depth,colourized,np.real(result))
-					result = colourized
+					result = imagefortran.fcolour(depth,result)
 				except MemoryError:
 					print("Out of memory when colouring the image.")
 					colourized = None
