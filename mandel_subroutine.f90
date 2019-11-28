@@ -72,7 +72,7 @@ real*8 :: mandel_calc_scaled
 integer :: i,j
 
 !If the image is small enough, spreading the work out on multiple cores is unnecesary and makes the computation slower.
-if(m < 300) then
+if(m < 100) then
     do i=1,n
         do j=1,m
             !(j,i) not (i,j) since python will read the result as transposed.
@@ -110,7 +110,7 @@ integer :: i,j,k
 
 invfactor = 1.d0/real(samplingfactor,kind=8)
 
-if(m < 300) then
+if(m < 100) then
     do i=1,n
         do j=1,m
             total = 0.d0

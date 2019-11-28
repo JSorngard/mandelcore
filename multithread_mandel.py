@@ -279,7 +279,7 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 
 		cores = mp.cpu_count()
 		if debug:
-			if im_eval_points < 300: #The 300 limit is hard coded into the fortran code as of right now.
+			if im_eval_points < 200: #The 300 limit is hard coded into the fortran code as of right now.
 				print("Evaluating with a single core due to the image size...")
 			else:
 				print("Attempting to evaluate on "+str(cores)+" cores...")
