@@ -436,8 +436,7 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 		return result
 	
 def write_image(fullname,image_file_ext,result,has_imageio,duration=1,debug=False,compress_level=compress_level):
-	if debug:
-		print("Writing image...")
+	print("Writing image...")
 
 	time = get_time()
 
@@ -572,7 +571,7 @@ if __name__ == "__main__":
 	result = []
 	for i in range(frames):
 
-		if frames > 1 and debug:
+		if frames > 1:
 			print("---Generating frame "+str(i+1)+"/"+str(frames)+", "+str(100*float(i+1)/float(frames))[:5]+"%---")
 		
 		if frames == 1:
