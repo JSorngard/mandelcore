@@ -240,11 +240,11 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 
 #----------------------------Grid generation section-------------------------------------
 		
+		grid_size = re_eval_points*im_eval_points*3*8
 		if debug:
 			print("Generating "+str(re_eval_points)+" by "+str(im_eval_points)+" grid...")
 			time = get_time()
 			
-			grid_size = np.ones((re_eval_points,im_eval_points,3)).nbytes
 			if mirror:
 				grid_size *= 2
 
@@ -263,17 +263,36 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 			im_points= np.linspace(np.imag(start),np.imag(end),im_eval_points)
 		deltai = im_points[1] - im_points[0]
 
+		grid_size += re_points.nbytes + im_points.nbytes
 		
 		if debug:
 			time = get_time() - time
 			
-			grid_size += re_points.nbytes + im_points.nbytes
 
 			if memory_debug:
 				print(" fractal grid should take up roughly "+quantity_suffix(grid_size)+"B in memory.")
 			
 			print("Done in "+str(time)[:4]+" seconds.\n")
 			
+#-----------------------------Recursive trick for large images---------------------------
+
+		memory_size = os.sysconf("SC_PAGE_SIZE")*os.sysconf("SC_PHYS_PAGES")
+		if(grid_size*1.3 > memory_size):
+			if debug:
+				print("Grid too large for memory, attempting recursive split...")
+
+			aspect_ratio *= 0.5
+			if debug:
+				print("--FIRST HALF--")
+			half_one = mandelbrot((2*fractal_center-im_dist*aspect_ratio)/(2.*zoom),im_dist,int(re_eval_points/2),im_eval_points*2,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=debug)
+			
+			if debug:
+				print("--SECOND HALF--")
+			half_two = mandelbrot((2*fractal_center+im_dist*aspect_ratio)/(2.*zoom),im_dist,int(re_eval_points/2),im_eval_points*2,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=debug)
+			
+			if debug:
+				print("--Combining parts--")
+			return np.concatenate((half_one,half_two),axis=1)
 
 #----------------------------Fractal evaluation section----------------------------------
 
