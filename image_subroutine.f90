@@ -13,7 +13,8 @@ real*8,dimension(n,m),intent(in) :: iters
 real*8,dimension(n,m,3),intent(out) :: image
 integer :: k,l
 real*8 :: T
-real*8,allocatable :: image_on_heap(:,:,:),iters_on_heap(:,:)
+
+image = 0.d0
 
 !If the image is small enough spreading the computation out on multiple cores is unnecessary and slows it down.
 if(m < 300) then
@@ -33,33 +34,21 @@ if(m < 300) then
       end do
   end do
 else
-
-  !Move the image array to the heap
-  allocate(image_on_heap(n,m,3),iters_on_heap(n,m))
-  image_on_heap = 0.d0
-  iters_on_heap = 0.d0
-  image_on_heap = image
-  iters_on_heap = iters
-
-
-  !$OMP parallel do shared(image_on_heap,iters_on_heap) private(T)
+  !$OMP parallel do shared(image,iters) private(T)
   do l=1,m
       do k=1,n
-          T=iters_on_heap(k,l)
+          T=iters(k,l)
 
           if(T == 0.d0) then
-            image_on_heap(k,l,:) = 0.d0
+            image(k,l,:) = 0.d0
           else
-            image_on_heap(k,l,1) = T * (depth**(1.d0 - (T**45.d0) * 2.d0))
-            image_on_heap(k,l,2) = (T * 70.d0) - (880.d0 * (T**18.d0)) + (701.d0 * (T**9.d0))
-            image_on_heap(k,l,3) = (T * 80.d0) + ((T**9.d0) * depth) - (950.d0 * (T**99.d0))
+            image(k,l,1) = T * (depth**(1.d0 - (T**45.d0) * 2.d0))
+            image(k,l,2) = (T * 70.d0) - (880.d0 * (T**18.d0)) + (701.d0 * (T**9.d0))
+            image(k,l,3) = (T * 80.d0) + ((T**9.d0) * depth) - (950.d0 * (T**99.d0))
           end if
       end do
   end do
   !$OMP end parallel do
-
-  !Move the image back to the stack
-  image = image_on_heap
 
 end if
 

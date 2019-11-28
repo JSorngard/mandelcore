@@ -245,8 +245,8 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 			print("Generating "+str(re_eval_points)+" by "+str(im_eval_points)+" grid...")
 			time = get_time()
 			
-			if mirror:
-				grid_size *= 2
+		if mirror:
+			grid_size *= 2
 
 
 		#Generates two 1d arrays, one for the real parts and one for the imaginary parts
@@ -277,19 +277,31 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 #-----------------------------Recursive trick for large images---------------------------
 
 		memory_size = os.sysconf("SC_PAGE_SIZE")*os.sysconf("SC_PHYS_PAGES")
-		if(grid_size*1.3 > memory_size):
+		#if grid_size*(1+cpu_cores) > memory_size:
+		if grid_size > memory_size:
 			if debug:
 				print("Grid too large for memory, attempting recursive split...")
 
 			aspect_ratio *= 0.5
+			if not mirror:
+				im_eval_points = int(im_eval_points/2)
 			if debug:
 				print("--FIRST HALF--")
 			half_one = mandelbrot((2*fractal_center-im_dist*aspect_ratio)/(2.*zoom),im_dist,int(re_eval_points/2),im_eval_points*2,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=debug)
 			
+			if type(half_one) == int and half_one == 0:
+				half_one = None
+				exit()
+
+
 			if debug:
 				print("--SECOND HALF--")
 			half_two = mandelbrot((2*fractal_center+im_dist*aspect_ratio)/(2.*zoom),im_dist,int(re_eval_points/2),im_eval_points*2,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=debug)
 			
+			if type(half_two) == int and half_two == 0:
+				half_two = None
+				exit()
+
 			if debug:
 				print("--Combining parts--")
 			return np.concatenate((half_one,half_two),axis=1)
