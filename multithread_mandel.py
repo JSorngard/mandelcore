@@ -105,10 +105,6 @@ data_file_ext = ".dat.gz"
 #Will be set to true if frames == 1.
 debug = False
 
-#Print extra information about memory use.
-memory_debug = True
-#Set to False to print one less line. Hooray!
-
 #Set to true if you want the fastest escaping point to always be blue.
 colour_shift = False
 
@@ -222,7 +218,7 @@ def quantity_suffix(size):
 
 	return str(round(size/10**(exponent),1))[:5]+" "+datasuffixes.get(exponent)
 
-def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=False,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=False,recursed=[0,1,1]):
+def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=False,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,debug=False,recursed="0"):
 
 		im_dist *= 1/zoom
 		re_dist = im_dist*aspect_ratio
@@ -241,9 +237,6 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 #----------------------------Grid generation section-------------------------------------
 		
 		grid_size = re_eval_points*im_eval_points*3*8
-		if debug:
-			print("Generating "+str(re_eval_points)+" by "+str(im_eval_points)+" grid...")
-			time = get_time()
 			
 		if mirror:
 			grid_size *= 2
@@ -264,37 +257,32 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 		deltai = im_points[1] - im_points[0]
 
 		grid_size += re_points.nbytes + im_points.nbytes
-		
-		if debug:
-			time = get_time() - time
-			
-
-			if memory_debug:
-				print(" fractal grid should take up roughly "+quantity_suffix(grid_size)+"B in memory.")
-			
-			print("Done in "+str(time)[:4]+" seconds.\n")
+								
 			
 #-----------------------------Recursive trick for large images---------------------------
-
 		memory_size = os.sysconf("SC_PAGE_SIZE")*os.sysconf("SC_PHYS_PAGES")
-		#if grid_size*(1+cpu_cores) > memory_size:
-		if grid_size > memory_size and recursed[0] == 0:
+		#If the ammount of memory required to generate the whole image in one go is too much
+		#we split the task in two and try again for each half.
+		if grid_size > memory_size:
 			
-			if debug and recursed[0] == 0:
-				print("Image too large for memory, attempting recursive split...")
+			next_recursed_one = recursed+"0"
+			next_recursed_two = recursed+"1"
+
+			if debug and recursed == "0":
+				print("Image of size "+quantity_suffix(grid_size)+"B is too large for memory,\nsplitting into tiles "+next_recursed_one+" and "+next_recursed_two+"...\n")
 			elif debug:
-				print("Image tile too large for memory, attempting recursive split...")
+				print("Tile "+recursed+" of size "+quantity_suffix(grid_size)+"B is too large for memory,\nsplitting into tiles "+next_recursed_one+" and "+next_recursed_two+"...\n")
 
 
-			next_recursed_one = [recursed[0]+1,2*recursed[1]-1,2*recursed[1]]
-			next_recursed_two = [recursed[0]+1,2*recursed[2]-1,2*recursed[2]]
+			#next_recursed_one = [recursed[0]+1,2*recursed[1]-1,2*recursed[1]]
+			#next_recursed_two = [recursed[0]+1,2*recursed[2]-1,2*recursed[2]]
 
 			aspect_ratio *= 0.5
 			if not mirror:
 				im_eval_points = int(im_eval_points/2)
 			if debug:
-				print(" computing tile "+str(recursed[1])+"/"+str(recursed[0]**2))
-			half_one = mandelbrot((2*fractal_center-im_dist*aspect_ratio)/(2.*zoom),im_dist,int(re_eval_points/2),im_eval_points*2,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=debug,recursed=next_recursed_one)
+				print("--Computing tile "+next_recursed_one+"--")
+			half_one = mandelbrot((2*fractal_center-im_dist*aspect_ratio)/(2.*zoom),im_dist,int(re_eval_points/2),im_eval_points*2,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,debug=debug,recursed=next_recursed_one)
 			
 			if type(half_one) == int and half_one == 0:
 				half_one = None
@@ -302,35 +290,33 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 
 
 			if debug:
-				print(" computing tile "+str(recursed[2])+"/"+str(recursed[0]**2))
-			half_two = mandelbrot((2*fractal_center+im_dist*aspect_ratio)/(2.*zoom),im_dist,int(re_eval_points/2),im_eval_points*2,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=debug,recursed=next_recursed_two)
+				print("--Computing tile "+next_recursed_two+"--")
+			half_two = mandelbrot((2*fractal_center+im_dist*aspect_ratio)/(2.*zoom),im_dist,int(re_eval_points/2),im_eval_points*2,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,debug=debug,recursed=next_recursed_two)
 			
 			if type(half_two) == int and half_two == 0:
 				half_two = None
 				exit()
 
-			if debug:
-				print("--Combining parts--")
 			return np.concatenate((half_one,half_two),axis=1)
 
 #----------------------------Fractal evaluation section----------------------------------
 
 		cores = mp.cpu_count()
 		if debug:
-			if im_eval_points < 200: #The 300 limit is hard coded into the fortran code as of right now.
-				print("Evaluating with a single core due to the image size...")
-			else:
-				print("Attempting to evaluate on "+str(cores)+" cores...")
+			#if im_eval_points < 200: #This limit is hard coded into the fortran code as of right now.
+			#	print("Evaluating with a single core due to the image size...")
+			#else:
+			#	print("Evaluating on "+str(cores)+" cores...")
 			time = get_time()
 
 		try:
 			if ssaa :
 				if debug:
-					print("Computing with SSAAx"+str(ssfactor**2)+"...")
+					print("Iterating Mandelbrot with SSAAx"+str(ssfactor**2)+"...")
 				result = mandelfortran.iterate_supersampled(re_points,im_points,iters,depth,ssfactor,deltar,deltai)
 			else:
 				if debug:
-					print("Computing...")
+					print("Iterating Mandelbrot...")
 				result = mandelfortran.iterate(re_points,im_points,iters,depth)
 		except MemoryError:
 			print("Out of memory when sending work to Fortran.")
@@ -338,13 +324,13 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 		
 		if debug:
 			time = get_time() - time
-			print("Done in "+str(time)[:4]+" seconds.\n")			
+			print(" done in "+str(time)[:4]+" seconds.")			
 
 #----------------------------Image post-processing section-------------------------------
 
 		if saveimage:
 			if debug:
-				print("Performing image manipulations...")
+				print("\nPerforming image manipulations...")
 				time = get_time()
 			
 			gammaname = ""
@@ -388,7 +374,7 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 							print("  scaling for colour shift...")
 						result = np.multiply(result,.98/np.max(result))
 										
-					if debug:
+					if debug and colour_shift:
 						print("  computing colours...")
 					result = imagefortran.fcolour(depth,result)
 				except MemoryError:
@@ -438,7 +424,7 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 					time = get_time() - time
 					#Need an extra digit of precision if the image is small.
 					accuracy = 4 if im_eval_points > 200 else 5
-					print("Done in "+str(time)[:accuracy]+" seconds.\n")
+					print(" done in "+str(time)[:accuracy]+" seconds.")
 
 		return result
 	
@@ -450,8 +436,9 @@ def write_image(fullname,image_file_ext,result,has_imageio,duration=1,debug=Fals
 	#frames = np.shape(result)[0] #This takes a weirldy large ammount of time.
 	frames = len(result)
 	
-	if frames > 1:
-		print("Writing image...")
+	if frames > 1 or (debug and frames == 1):
+		print("\nWriting image...")
+
 
 	#If we have generated multiple images we are making a gif.
 	if frames > 1:
@@ -510,7 +497,7 @@ def write_image(fullname,image_file_ext,result,has_imageio,duration=1,debug=Fals
 	if debug:
 		size = os.stat(fullname+image_file_ext).st_size
 		print(" saved "+fullname+image_file_ext+" with size "+quantity_suffix(size)+"B.")
-		print("Done in "+str(time)[:4]+" seconds.\n")
+		print(" done in "+str(time)[:4]+" seconds.")
 	
 	return 1	
 
@@ -539,7 +526,7 @@ def write_data(fullname,data_file_ext,result,debug=False):
 	
 	if debug:
 		time = get_time() - time
-		print("Done in "+str(time)[:4]+" seconds.\n")
+		print(" done in "+str(time)[:4]+" seconds.\n")
 	return 1
 
 
@@ -636,4 +623,4 @@ if __name__ == "__main__":
 	result = None
 
 	if debug:
-		print("Total time consumption: "+str(get_time() - total_time)[:5]+" seconds.")
+		print("\nTotal time consumption: "+str(get_time() - total_time)[:5]+" seconds.")
