@@ -222,7 +222,7 @@ def quantity_suffix(size):
 
 	return str(round(size/10**(exponent),1))[:5]+" "+datasuffixes.get(exponent)
 
-def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=False,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=False):
+def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=False,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=False,recursed=[0,1,1]):
 
 		im_dist *= 1/zoom
 		re_dist = im_dist*aspect_ratio
@@ -278,16 +278,23 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 
 		memory_size = os.sysconf("SC_PAGE_SIZE")*os.sysconf("SC_PHYS_PAGES")
 		#if grid_size*(1+cpu_cores) > memory_size:
-		if grid_size > memory_size:
-			if debug:
-				print("Grid too large for memory, attempting recursive split...")
+		if grid_size > memory_size and recursed[0] == 0:
+			
+			if debug and recursed[0] == 0:
+				print("Image too large for memory, attempting recursive split...")
+			elif debug:
+				print("Image tile too large for memory, attempting recursive split...")
+
+
+			next_recursed_one = [recursed[0]+1,2*recursed[1]-1,2*recursed[1]]
+			next_recursed_two = [recursed[0]+1,2*recursed[2]-1,2*recursed[2]]
 
 			aspect_ratio *= 0.5
 			if not mirror:
 				im_eval_points = int(im_eval_points/2)
 			if debug:
-				print("--FIRST HALF--")
-			half_one = mandelbrot((2*fractal_center-im_dist*aspect_ratio)/(2.*zoom),im_dist,int(re_eval_points/2),im_eval_points*2,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=debug)
+				print(" computing tile "+str(recursed[1])+"/"+str(recursed[0]**2))
+			half_one = mandelbrot((2*fractal_center-im_dist*aspect_ratio)/(2.*zoom),im_dist,int(re_eval_points/2),im_eval_points*2,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=debug,recursed=next_recursed_one)
 			
 			if type(half_one) == int and half_one == 0:
 				half_one = None
@@ -295,8 +302,8 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 
 
 			if debug:
-				print("--SECOND HALF--")
-			half_two = mandelbrot((2*fractal_center+im_dist*aspect_ratio)/(2.*zoom),im_dist,int(re_eval_points/2),im_eval_points*2,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=debug)
+				print(" computing tile "+str(recursed[2])+"/"+str(recursed[0]**2))
+			half_two = mandelbrot((2*fractal_center+im_dist*aspect_ratio)/(2.*zoom),im_dist,int(re_eval_points/2),im_eval_points*2,aspect_ratio,zoom,depth=depth,iters=iters,multicore=multicore,saveimage=saveimage,blur=blur,radius=radius,ssaa=ssaa,ssfactor=ssfactor,colorize=colorize,colour_shift=colour_shift,gamma=gamma,path=path,image_file_ext=image_file_ext,data_file_ext=data_file_ext,memory_debug=memory_debug,debug=debug,recursed=next_recursed_two)
 			
 			if type(half_two) == int and half_two == 0:
 				half_two = None
@@ -445,7 +452,7 @@ def write_image(fullname,image_file_ext,result,has_imageio,duration=1,debug=Fals
 	
 	if frames > 1:
 		print("Writing image...")
-		
+
 	#If we have generated multiple images we are making a gif.
 	if frames > 1:
 		image_file_ext = ".gif"
