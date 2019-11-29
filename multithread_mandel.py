@@ -436,7 +436,6 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 		return result
 	
 def write_image(fullname,image_file_ext,result,has_imageio,duration=1,debug=False,compress_level=compress_level):
-	print("Writing image...")
 
 	time = get_time()
 
@@ -444,6 +443,9 @@ def write_image(fullname,image_file_ext,result,has_imageio,duration=1,debug=Fals
 	#frames = np.shape(result)[0] #This takes a weirldy large ammount of time.
 	frames = len(result)
 	
+	if frames > 1:
+		print("Writing image...")
+		
 	#If we have generated multiple images we are making a gif.
 	if frames > 1:
 		image_file_ext = ".gif"
