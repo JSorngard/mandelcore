@@ -1,5 +1,5 @@
 import numpy as np
-import multiprocessing as mp
+from multiprocessing import cpu_count
 import sys
 import os
 import mandelfortran
@@ -194,8 +194,7 @@ if not fortran_omp:
 """
 #Makes exponentiation multicore if applicable on current machine
 #and beneficial for the problem size.
-cpu_cores = mp.cpu_count()
-if has_numba and cpu_cores > 1 and im_eval_points >= 4000:
+if has_numba and cpu_count() > 1 and im_eval_points >= 4000:
 	@njit(parallel=True)
 	def powah(array,power):
 		return np.power(array,power)
@@ -301,7 +300,6 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 
 #----------------------------Fractal evaluation section----------------------------------
 
-		cores = mp.cpu_count()
 		if debug:
 			#if im_eval_points < 200: #This limit is hard coded into the fortran code as of right now.
 			#	print("Evaluating with a single core due to the image size...")
