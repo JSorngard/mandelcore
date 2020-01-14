@@ -18,12 +18,14 @@ func main() {
 	aspectRatioFlag := flag.Float64("r", 1.5, "set the aspect ratio of the image")
 	realFractalCenterFlag := flag.Float64("cr", -0.75, "set the real part of the center of the fractal image")
 	imagFractalCenterFlag := flag.Float64("ci", 0, "set the imaginary part of the center of the fractal image")
-	resolutionFlag := flag.Int("y", 2160, "set the number of pixels along the y-axis")
+	resolutionFlag := flag.Int("y", 2016, "set the number of pixels along the y-axis")
 	ssaaFlag := flag.Int("s", 3, "set the number of supersamples along one direction. Execution speed slows down with the square of this number")
 	flag.Parse()
 
-	//Work out size of plot in complex plane.
+	//We use this flag to determine whether to print extra information.
 	verbose := *verboseFlag
+
+	//Work out size of plot in complex plane.
 	aspectRatio := *aspectRatioFlag
 	imagDistance := 8.0 / 3.0 //The distance covered along the imaginary axis in the image.
 	realDistance := imagDistance * aspectRatio
@@ -54,13 +56,26 @@ func main() {
 	img := image.NewRGBA(image.Rectangle{upLeft, downRight})
 
 	//Work out position of points in complex plane.
-	realDelta := linearSpace(realStart, realEnd, realPoints)
-	imagDelta := linearSpace(imagStart, imagEnd, imagPoints)
+	linearSpace(realStart, realEnd, realPoints)
+	realDelta := (realEnd - realStart) / float64(realPointsLen)
+	linearSpace(imagStart, imagEnd, imagPoints)
+	imagDelta := (imagEnd - imagStart) / float64(imagPointsLen)
+
+	//Work out if we should mirror the fractal image from the top,
+	//bottom, or not at all.
+	//mirror := imagStart < 0 && imagEnd > 0
+	//bottomHalfLarger := math.Abs(imagStart) >= math.Abs(imagEnd)
+	//mirrorBottom := mirror && bottomHalfLarger
+	//mirrorTop := mirror && !bottomHalfLarger
 
 	//Establish a queue of jobs and fill it.
 	rowJobs := make(chan mandelbrotRow, imagPointsLen)
 	for i, cImag := range imagPoints {
 		rowJobs <- newMandelbrotRow(img, cImag, i)
+
+		//if cImag > 0 && mirrorBottom {
+		//	break
+		//}
 	}
 	close(rowJobs)
 
@@ -72,13 +87,16 @@ func main() {
 	cores := runtime.NumCPU()
 	var wg sync.WaitGroup
 	for i := 0; i < cores; i++ {
-		wg.Add(1)
+		wg.Add(1) //Add one goroutine to the wait group
 		go func() {
 			mandelbrotRowWorker(rowJobs, realPoints, maxIterations, colorDepth, *ssaaFlag, realDelta, imagDelta)
 			wg.Done()
-		}()
+		}() //make a gorountine that calls a mandelbrotworker, and notifies
+		//the work group when it finishes.
 	}
 	wg.Wait() //Wait until they all finish.
+
+	//if mirror {}
 
 	//Encode image
 	if verbose {
@@ -88,15 +106,12 @@ func main() {
 	png.Encode(f, img)
 }
 
-func linearSpace(start float64, end float64, linSpace []float64) float64 {
+func linearSpace(start float64, end float64, linSpace []float64) {
 	length := len(linSpace)
-	stepSize := (end - start) / float64(length)
-
+	stepSize := (end - start) / float64(length-1)
 	for i := 0; i < length; i++ {
 		linSpace[i] = start + float64(i)*stepSize
 	}
-
-	return stepSize
 }
 
 type mandelbrotRow struct {
