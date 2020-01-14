@@ -57,9 +57,9 @@ func main() {
 
 	//Work out position of points in complex plane.
 	linearSpace(realStart, realEnd, realPoints)
-	realDelta := (realEnd - realStart) / float64(realPointsLen)
+	realDelta := (realEnd - realStart) / float64(realPointsLen-1)
 	linearSpace(imagStart, imagEnd, imagPoints)
-	imagDelta := (imagEnd - imagStart) / float64(imagPointsLen)
+	imagDelta := (imagEnd - imagStart) / float64(imagPointsLen-1)
 
 	//Work out if we should mirror the fractal image from the top,
 	//bottom, or not at all.
