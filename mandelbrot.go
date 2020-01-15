@@ -22,7 +22,7 @@ func main() {
 	aspectRatioFlag := flag.Float64("r", 1.5, "set the aspect ratio of the image")
 	realFractalCenterFlag := flag.Float64("cr", -0.75, "set the real part of the center of the fractal image")
 	imagFractalCenterFlag := flag.Float64("ci", 0, "set the imaginary part of the center of the fractal image")
-	resolutionFlag := flag.Int("y", 2016, "set the number of pixels along the y-axis")
+	resolutionFlag := flag.Int("y", 2160, "set the number of pixels along the y-axis")
 	ssaaFlag := flag.Int("s", 3, "set the number of supersamples along one direction. Execution speed slows down with the square of this number")
 	flag.Parse()
 
