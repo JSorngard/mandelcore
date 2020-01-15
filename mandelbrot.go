@@ -63,17 +63,17 @@ func main() {
 	img := image.NewRGBA(image.Rectangle{upLeft, downRight})
 
 	//Work out position of points in complex plane.
-	LinearSpace(realStart, realEnd, realPoints)
+	realPoints = LinearSpace(realStart, realEnd, realPointsLen)
 	realDelta := (realEnd - realStart) / float64(realPointsLen-1)
-	LinearSpace(imagStart, imagEnd, imagPoints)
+	imagPoints = LinearSpace(imagStart, imagEnd, imagPointsLen)
 	imagDelta := (imagEnd - imagStart) / float64(imagPointsLen-1)
 
 	//Work out if we should mirror the fractal image from the top,
 	//bottom, or not at all.
-	//mirror := imagStart < 0 && imagEnd > 0
-	//bottomHalfLarger := math.Abs(imagStart) >= math.Abs(imagEnd)
-	//mirrorBottom := mirror && bottomHalfLarger
-	//mirrorTop := mirror && !bottomHalfLarger
+	mirror := imagStart < 0 && imagEnd > 0
+	bottomHalfLarger := math.Abs(imagStart) >= math.Abs(imagEnd)
+	mirrorBottom := mirror && bottomHalfLarger
+	mirrorTop := mirror && !bottomHalfLarger
 
 	start := time.Now()
 	if verbose {
@@ -87,13 +87,28 @@ func main() {
 
 	//Establish a queue of jobs and fill it.
 	rowJobs := make(chan mandelbrotRow, imagPointsLen)
+	lastColoredRowIndex := 0
+
+	if mirrorTop {
+		imagPoints = Reverse(imagPoints)
+	}
+	//In the case where we mirror from the bottom or do not
+	//mirror at all we do not need to change the order of the points.
+
 	for i, cImag := range imagPoints {
 		rowJobs <- newMandelbrotRow(img, cImag, i)
+
+		//If we are mirroring the image we do not need to color the
+		//entire thing. Only until we cross the real axis.
+		if (mirrorBottom && cImag > 0) || (mirrorTop && cImag < 0) {
+			lastColoredRowIndex = i
+			break
+		}
 	}
 	close(rowJobs)
 
 	//Parallel execution of cores separate threads that each compute
-	//rows of the mandelbrot image taken from the jobs queue.
+	//rows of the mandelbrot image taken from the rowJobs channel.
 	cores := runtime.NumCPU()
 	var wg sync.WaitGroup
 	for i := 0; i < cores; i++ {
@@ -106,11 +121,39 @@ func main() {
 	}
 	wg.Wait() //Wait until they all finish.
 
+	var loops int
+	//var colorBuffer color.RGBA
+	if mirror {
+		if verbose {
+			fmt.Println(" mirroring...")
+		}
+		for i := 0; i < realPointsLen; i++ {
+			//For every uncolored row we color every pixel
+			//the same color as the pixel mirrored in the real axis.
+			//(The loop has been switched around for cache awareness.)
+			//The +1 in the start value of j comes from how we break the row
+			//coloring after having computed the first row after
+			//crossing the real axis during the iterations.
+			loops = 0
+			for j := lastColoredRowIndex + 1; j < imagPointsLen; j++ {
+				img.Set(i, j, img.At(i, lastColoredRowIndex-2-loops))
+
+				/*
+					//If we are mirroring from the top we flipped the imaginary axis
+					//earlier and must now flip back.
+					if mirrorTop {
+						colorBuffer = img.At(i, j)
+						img.Set(i,j)
+					}*/
+
+				loops++
+			}
+		}
+	}
+
 	if verbose {
 		fmt.Printf(" took %s.\n", time.Since(start))
 	}
-
-	//if mirror {}
 
 	//Encode image
 	if verbose {
@@ -125,15 +168,36 @@ func main() {
 	}
 }
 
-//LinearSpace assigns the values of slice so that
-//the first is start, the last is end, and the other values
-//change in a linear fashon
-func LinearSpace(start float64, end float64, slice []float64) {
-	length := len(slice)
+//LinearSpace returns a slice of length elements such that
+//the first element is start, the last is end, and the others
+//change in a linear fashon. An attempt at numpys linspace.
+func LinearSpace(start float64, end float64, length int) []float64 {
+	output := make([]float64, length)
 	stepSize := (end - start) / float64(length-1)
 	for i := 0; i < length; i++ {
-		slice[i] = start + float64(i)*stepSize
+		output[i] = start + float64(i)*stepSize
 	}
+
+	return output
+}
+
+//Reverse returns a new slice with all the elements of the input slice
+//in reverse order.
+func Reverse(slice []float64) []float64 {
+	length := len(slice)
+	output := make([]float64, length)
+	for i := range slice {
+		output[length-i-1] = slice[i]
+	}
+
+	return output
+}
+
+//Returns the index of the middle element of a slice.
+//If the number of elements is even it returns the lowest
+//index of the two closest to the middle.
+func IndexOfMiddle(slice []float64) int {
+	return int(len(slice) / 2)
 }
 
 type mandelbrotRow struct {
@@ -158,7 +222,7 @@ func mandelbrotRowWorker(rowJobs <-chan mandelbrotRow, cReal []float64, maxItera
 
 	for job := range rowJobs {
 		if job.img.Bounds().Dx() != len(cReal) {
-			fmt.Println("mandelbrotRowWorker: length of image row must be the same as data row. They are ", job.img.Bounds().Dx(), "and", len(cReal))
+			fmt.Println("mandelbrotRowWorker: length of image row must be the same as data row, but they are ", job.img.Bounds().Dx(), "and", len(cReal))
 			os.Exit(1)
 		}
 
@@ -179,7 +243,7 @@ func mandelbrotRowWorker(rowJobs <-chan mandelbrotRow, cReal []float64, maxItera
 			total = total / ssaaFactor
 
 			//The color curves here have been found empirically through a
-			//(more or less) artistic process, feel free to change them
+			//more or less artistic process, feel free to change them
 			//to something else if you prefer.
 			job.img.Set(j, job.yIndex, color.RGBA{
 				uint8(total * math.Pow(float64(maxIterations), 1.0-math.Pow(total, 45.0)*2.0)),
@@ -195,12 +259,14 @@ func mandelbrotRowWorker(rowJobs <-chan mandelbrotRow, cReal []float64, maxItera
 //of z exceeds 6, or the number of iterations exceeds maxIterations
 //it stops iterating. If the number of iterations == maxIterations it
 //returns 0.0, otherwise maxIterations-iterations-4*(abs(z))^(-.4) / float64(maxIterations).
+//This is always a number between 0 and 1.
 func MandelbrotIteratePoint(cReal float64, cImag float64, maxIterations int) float64 {
 
 	cImagSqr := cImag * cImag
 	magSqr := cReal*cReal + cImagSqr
 
-	//Determine if the complex number is in the main cardioid or period two bulb.
+	//Determine if the complex number is in the main cardioid or period two bulb,
+	//if so we can instantly return 0.
 	if math.Pow(cReal+1, 2)+cImagSqr <= 0.0625 || magSqr*(8.0*magSqr-3.0) <= 0.09375-cReal {
 		return 0.0
 	}
@@ -210,7 +276,7 @@ func MandelbrotIteratePoint(cReal float64, cImag float64, maxIterations int) flo
 	var zImag float64
 	var zRealSqr float64
 	var zImagSqr float64
-	var iterations int
+	var iterations int //Initialization sets variables to 0.
 
 	//Iterates the mandelbrot function.
 	//This loop has only three multiplications, which is the minimum.
