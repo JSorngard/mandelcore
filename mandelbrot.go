@@ -33,6 +33,9 @@ func main() {
 	//since that is the scale of RGB values in images.
 	maxIterations := int(^uint8(0))
 
+	//The name of the final image.
+	outputName := "m.png"
+
 	//Work out size of plot in complex plane.
 	aspectRatio := *aspectRatioFlag
 	imagDistance := 8.0 / 3.0 //The distance covered along the imaginary axis in the image.
@@ -56,6 +59,9 @@ func main() {
 	realPointsLen := int(float64(imagPointsLen) * aspectRatio)
 	realPoints := make([]float64, realPointsLen)
 	imagPoints := make([]float64, imagPointsLen)
+	if verbose {
+		fmt.Println("-- Generating", realPointsLen, "x", imagPointsLen, "image --")
+	}
 
 	//Make an image object.
 	upLeft := image.Point{0, 0}
@@ -153,19 +159,40 @@ func main() {
 
 	if verbose {
 		fmt.Printf(" took %s.\n", time.Since(start))
+		fmt.Println("Encoding fractal as png image...")
 	}
 
 	//Encode image
-	if verbose {
-		fmt.Println("Encoding fractal as png image...")
-	}
 	start = time.Now()
-	f, _ := os.Create("m.png")
+	f, _ := os.Create(outputName)
 	png.Encode(f, img)
+
 	if verbose {
+		fi, err := os.Stat(outputName)
+		if err != nil {
+			fmt.Println(" could not generate image.")
+		} else {
+			fmt.Printf(" generated %s with a size of %s.\n", outputName, ByteCountDecimal(fi.Size()))
+		}
+
 		fmt.Printf(" took %s.\n", time.Since(start))
 		fmt.Printf("Total time consumption was %s\n", time.Since(beginning))
 	}
+}
+
+//ByteCountDecimal takes in a number of bytes and returns
+//it shortened with the appropriate SI prefix.
+func ByteCountDecimal(b int64) string {
+	const unit = 1000
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "kMGTPE"[exp])
 }
 
 //LinearSpace returns a slice of length elements such that
