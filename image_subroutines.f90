@@ -49,7 +49,6 @@ else
       end do
   end do
   !$OMP end parallel do
-
 end if
 
 
