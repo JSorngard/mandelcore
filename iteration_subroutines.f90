@@ -68,8 +68,8 @@ real*8,intent(in),dimension(n) :: re
 real*8,intent(in),dimension(m) :: im
 real*8,intent(out),dimension(m,n) :: result
 
-real*8 :: mandel_calc_scaled
 integer :: i,j
+real*8 :: mandel_calc_scaled
 
 !If the image is small enough, spreading the work out on multiple cores is unnecesary and makes the computation slower.
 if(m < 100) then
@@ -105,7 +105,7 @@ real*8,intent(in),dimension(n) :: re
 real*8,intent(in),dimension(m) :: im
 real*8,intent(out),dimension(m,n) :: result
 
-real*8 :: mandel_calc_scaled,total,coloffset,rowoffset,esc,invfactor
+real*8 :: total,coloffset,rowoffset,esc,invfactor, mandel_calc_scaled
 integer :: i,j,k
 
 invfactor = 1.d0/real(samplingfactor,kind=8)
@@ -125,7 +125,7 @@ if(m < 100) then
             result(j,i) = total/real(samplingfactor**2,kind=8)
         end do
     end do
-else    
+else
     !$OMP parallel do shared(result,re,im) private(total,esc,coloffset,rowoffset)
     do i=1,n
         do j=1,m

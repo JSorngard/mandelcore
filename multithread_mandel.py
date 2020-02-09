@@ -375,6 +375,8 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 					if debug and colour_shift:
 						print("  computing colours...")
 					result = imagefortran.fcolour(depth,result)
+					result = np.swapaxes(result, 0, -1)
+					result = np.swapaxes(result, 0, 1)
 				except MemoryError:
 					print("Out of memory when colouring the image.")
 					colourized = None
