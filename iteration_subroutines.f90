@@ -122,7 +122,7 @@ if(m < 100) then
                 esc = mandel_calc_scaled(re(i)+rowoffset*deltar,im(j)+coloffset*deltai,maxiters,depth)
                 total = total + esc**2.d0
             end do
-            result(j,i) = total/real(samplingfactor**2,kind=8)
+            result(j,i) = total/dble(samplingfactor**2)
         end do
     end do
 else
