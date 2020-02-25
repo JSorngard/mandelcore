@@ -108,7 +108,7 @@ real*8,intent(out),dimension(m,n) :: result
 real*8 :: total,coloffset,rowoffset,esc,invfactor, mandel_calc_scaled
 integer :: i,j,k
 
-invfactor = 1.d0/real(samplingfactor,kind=8)
+invfactor = 1.d0/dble(samplingfactor)
 
 if(m < 100) then
     do i=1,n
@@ -117,8 +117,8 @@ if(m < 100) then
             do k=1,samplingfactor**2
                 !Computes offsets. These should range from -1/samplingfactor
                 !to 1/samplingfactor with a 0 included if samplingfator is odd.
-                coloffset = (real(mod(k,samplingfactor),kind=8)-1.d0)*invfactor
-                rowoffset = (real((k-1)/samplingfactor,kind=8)-1.d0)*invfactor
+                coloffset = (dble(mod(k,samplingfactor))-1.d0)*invfactor
+                rowoffset = (dble((k-1)/samplingfactor)-1.d0)*invfactor
                 esc = mandel_calc_scaled(re(i)+rowoffset*deltar,im(j)+coloffset*deltai,maxiters,depth)
                 total = total + esc**2.d0
             end do
@@ -131,12 +131,12 @@ else
         do j=1,m
             total = 0.d0
             do k=1,samplingfactor**2
-                coloffset = (real(mod(k,samplingfactor),kind=8)-1.d0)*invfactor
-                rowoffset = (real((k-1)/samplingfactor,kind=8)-1.d0)*invfactor
+                coloffset = (dble(mod(k,samplingfactor))-1.d0)*invfactor
+                rowoffset = (dble((k-1)/samplingfactor)-1.d0)*invfactor
                 esc = mandel_calc_scaled(re(i)+rowoffset*deltar,im(j)+coloffset*deltai,maxiters,depth)
                 total = total + esc**2.d0
             end do
-            result(j,i) = total/real(samplingfactor**2,kind=8)
+            result(j,i) = total/dble(samplingfactor**2)
         end do
     end do
     !$OMP end parallel do
