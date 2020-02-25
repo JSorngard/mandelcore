@@ -63,31 +63,22 @@ subroutine iterate(re,im,maxiters,depth,result,n,m)
 
 use omp_lib
 implicit none
-integer,intent(in) :: n,m,maxiters,depth
-real*8,intent(in),dimension(n) :: re
-real*8,intent(in),dimension(m) :: im
-real*8,intent(out),dimension(m,n) :: result
+integer,    intent(in)                      :: n,m,maxiters,depth
+real*8,     intent(in),     dimension(n)    :: re
+real*8,     intent(in),     dimension(m)    :: im
+real*8,     intent(out),    dimension(m,n)  :: result
 
-integer :: i,j
-real*8 :: mandel_calc_scaled
+integer                                     :: i,j
+real*8                                      :: mandel_calc_scaled
 
-!If the image is small enough, spreading the work out on multiple cores is unnecesary and makes the computation slower.
-if(m < 100) then
-    do i=1,n
-        do j=1,m
-            !(j,i) not (i,j) since python will read the result as transposed.
-            result(j,i) = mandel_calc_scaled(re(i),im(j),maxiters,depth)
-        end do
+!$OMP parallel do shared(result,re,im)
+do i=1,n
+    do j=1,m
+        result(j,i) = mandel_calc_scaled(re(i),im(j),maxiters,depth)
     end do
-else
-    !$OMP parallel do shared(result,re,im)
-    do i=1,n
-        do j=1,m
-            result(j,i) = mandel_calc_scaled(re(i),im(j),maxiters,depth)
-        end do
-    end do
-    !$OMP end parallel do
-end if
+end do
+!$OMP end parallel do
+
 end subroutine iterate
 
 subroutine iterate_supersampled(re,im,maxiters,depth,samplingfactor,deltar,deltai,result,n,m)
@@ -99,48 +90,45 @@ subroutine iterate_supersampled(re,im,maxiters,depth,samplingfactor,deltar,delta
 !deltai: the distance between two pixels along the imaginary axis.
 use omp_lib
 implicit none
-integer,intent(in) :: n,m,maxiters,depth,samplingfactor
-real*8,intent(in) :: deltar,deltai
-real*8,intent(in),dimension(n) :: re
-real*8,intent(in),dimension(m) :: im
-real*8,intent(out),dimension(m,n) :: result
+integer,    intent(in)                      :: n,m,maxiters,depth,samplingfactor
+real*8,     intent(in)                      :: deltar,deltai
+real*8,     intent(in),     dimension(n)    :: re
+real*8,     intent(in),     dimension(m)    :: im
+real*8,     intent(out),    dimension(m,n)  :: result
 
-real*8 :: total,coloffset,rowoffset,esc,invfactor, mandel_calc_scaled
-integer :: i,j,k
+real*8                                      :: total,coloffset,rowoffset,esc,invfactor
+real*8                                      :: mandel_calc_scaled
+integer                                     :: i,j,k,samples
 
-invfactor = 1.d0/dble(samplingfactor)
-
-if(m < 100) then
-    do i=1,n
-        do j=1,m
-            total = 0.d0
-            do k=1,samplingfactor**2
-                !Computes offsets. These should range from -1/samplingfactor
-                !to 1/samplingfactor with a 0 included if samplingfator is odd.
-                coloffset = (dble(mod(k,samplingfactor))-1.d0)*invfactor
-                rowoffset = (dble((k-1)/samplingfactor)-1.d0)*invfactor
-                esc = mandel_calc_scaled(re(i)+rowoffset*deltar,im(j)+coloffset*deltai,maxiters,depth)
-                total = total + esc**2.d0
-            end do
-            result(j,i) = total/dble(samplingfactor**2)
-        end do
-    end do
+if(samplingfactor == 1) then
+    invfactor = 0.d0
 else
-    !$OMP parallel do shared(result,re,im) private(total,esc,coloffset,rowoffset)
-    do i=1,n
-        do j=1,m
-            total = 0.d0
-            do k=1,samplingfactor**2
-                coloffset = (dble(mod(k,samplingfactor))-1.d0)*invfactor
-                rowoffset = (dble((k-1)/samplingfactor)-1.d0)*invfactor
-                esc = mandel_calc_scaled(re(i)+rowoffset*deltar,im(j)+coloffset*deltai,maxiters,depth)
-                total = total + esc**2.d0
-            end do
-            result(j,i) = total/dble(samplingfactor**2)
-        end do
-    end do
-    !$OMP end parallel do
+    invfactor = 1.d0/dble(samplingfactor)
 end if
 
+!$OMP parallel do shared(result,re,im) private(total,esc,coloffset,rowoffset)
+do i=1,n
+    do j=1,m
+        total = 0.d0
+        samples = 0
+        do k=1,samplingfactor**2 !Supersampling loop
+            coloffset = (dble(mod(k,samplingfactor))-1.d0)*invfactor
+            rowoffset = (dble((k-1)/samplingfactor) -1.d0)*invfactor
+            esc       = mandel_calc_scaled(re(i)+rowoffset*deltar,&
+                                           im(j)+coloffset*deltai,&
+                                           maxiters,depth)
+            total     = total + esc!**2.d0
+            samples   = samples + 1
+            
+            !If we are far away from the fractal we don't need to supersample
+            if(esc > 0.9)then
+                exit
+            end if
+        end do
+        total = total/dble(samples)
+        result(j,i) = total
+    end do
+end do
+!$OMP end parallel do
 
 end subroutine iterate_supersampled
