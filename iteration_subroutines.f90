@@ -1,6 +1,6 @@
-real(kind(1d0)) function mandel_calc_scaled(cr,ci,maxiters,depth)
+real(kind(1d0)) pure function mandel_calc_scaled(cr,ci,maxiters,depth)
 !Iterates the mandelbrot function for cr+i*ci until either
-!convergence of maxiters iterations.
+!it converges or reaches maxiters iterations.
 !Returns a double between 0 and 1.
 !0 if in the set and increasing to 1 the further out.
 !Also scales the computation result based on how far out the point got.
@@ -32,7 +32,7 @@ zisqr = zi*zi
 !instead of 2 because it gives smoother colours.
 do while(zrsqr + zisqr <= 36.d0 .and. iters < maxiters)
     zi = zr*zi
-    zi = zi + zi
+    zi = zi + zi !This builds the 2*a*b part of (a+bi)^2
     zi = zi + ci
     zr = zrsqr - zisqr + cr
     zrsqr = zr*zr
@@ -44,7 +44,7 @@ if(iters == maxiters) then !In the set
     mandel_calc_scaled = 0.d0
 else
     !This formula scales the answer to a real between 0 and 1 in a way that smoothens out the colours far away.
-    mandel_calc_scaled = (2.d0+(maxiters-iters-2.d0)-4.d0*sqrt(zrsqr+zisqr)**(-.4d0))/dble(depth) !Puts the answer in the range 0-1
+    mandel_calc_scaled = (2.d0+(maxiters-iters-2.d0)-4.d0*sqrt(zrsqr+zisqr)**(-.4d0))/dble(depth)
 end if
 
 end function mandel_calc_scaled
