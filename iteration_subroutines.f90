@@ -1,4 +1,4 @@
-real*8 function mandel_calc_scaled(cr,ci,maxiters,depth)
+real(kind(1d0)) function mandel_calc_scaled(cr,ci,maxiters,depth)
 !Iterates the mandelbrot function for cr+i*ci until either
 !convergence of maxiters iterations.
 !Returns a double between 0 and 1.
@@ -6,10 +6,10 @@ real*8 function mandel_calc_scaled(cr,ci,maxiters,depth)
 !Also scales the computation result based on how far out the point got.
 !This results in smoother colour shading.
 implicit none
-real*8,intent(in) :: cr,ci
-integer,intent(in) :: maxiters,depth
-real*8 :: zr,zi,zrsqr,zisqr,mag2,cisqr
-integer :: iters
+real(kind(1d0)),    intent(in)  :: cr,ci
+integer,            intent(in)  :: maxiters,depth
+real(kind(1d0))                 :: zr,zi,zrsqr,zisqr,mag2,cisqr
+integer                         :: iters
 
 cisqr = ci*ci
 mag2 = cr*cr+cisqr
@@ -63,13 +63,13 @@ subroutine iterate(re,im,maxiters,depth,result,n,m)
 
 use omp_lib
 implicit none
-integer,    intent(in)                      :: n,m,maxiters,depth
-real*8,     intent(in),     dimension(n)    :: re
-real*8,     intent(in),     dimension(m)    :: im
-real*8,     intent(out),    dimension(m,n)  :: result
+integer,    intent(in)                              :: n,m,maxiters,depth
+real(kind(1d0)),    intent(in),     dimension(n)    :: re
+real(kind(1d0)),    intent(in),     dimension(m)    :: im
+real(kind(1d0)),    intent(out),    dimension(m,n)  :: result
 
-integer                                     :: i,j
-real*8                                      :: mandel_calc_scaled
+integer                                             :: i,j
+real(kind(1d0))                                     :: mandel_calc_scaled
 
 !$OMP parallel do shared(result,re,im)
 do i=1,n
@@ -90,15 +90,15 @@ subroutine iterate_supersampled(re,im,maxiters,depth,samplingfactor,deltar,delta
 !deltai: the distance between two pixels along the imaginary axis.
 use omp_lib
 implicit none
-integer,    intent(in)                      :: n,m,maxiters,depth,samplingfactor
-real*8,     intent(in)                      :: deltar,deltai
-real*8,     intent(in),     dimension(n)    :: re
-real*8,     intent(in),     dimension(m)    :: im
-real*8,     intent(out),    dimension(m,n)  :: result
+integer,            intent(in)                      :: n,m,maxiters,depth,samplingfactor
+real(kind(1d0)),    intent(in)                      :: deltar,deltai
+real(kind(1d0)),    intent(in),     dimension(n)    :: re
+real(kind(1d0)),    intent(in),     dimension(m)    :: im
+real(kind(1d0)),    intent(out),    dimension(m,n)  :: result
 
-real*8                                      :: total,coloffset,rowoffset,esc,invfactor
-real*8                                      :: mandel_calc_scaled
-integer                                     :: i,j,k,samples
+real(kind(1d0))                                     :: total,coloffset,rowoffset,esc,invfactor
+real(kind(1d0))                                     :: mandel_calc_scaled
+integer                                             :: i,j,k,samples
 
 if(samplingfactor == 1) then
     invfactor = 0.d0
