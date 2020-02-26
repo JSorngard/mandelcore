@@ -3,8 +3,6 @@
 Generates a plot of the mandelbrot set using all available cpu cores. Does the iterating and colouring in Fortran using OpenMP.
 Allows the user to specify resolution, whether the image should be coloured or black and white, where to center the image and how much to zoom among other things. Also allows the generation of animated gifs of zooming in to the fractal.
 
-Compile by running the compile.com script.
-
 Command line arguments:  
   -cr RCENTER, --Rcenter RCENTER  
                         Specify the real part of the point in the complex  
