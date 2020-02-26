@@ -5,53 +5,54 @@ subroutine fcolour(depth,iters,image,n,m)
 !This should have been used during the computation.
 !iters: an array of containing the result from the mandelbrot iterations.
 !image: on exit will contain an array of RGB triplets.
-use omp_lib
-implicit none
-integer,intent(in) :: n,m
-integer,intent(in) :: depth
-real*8,dimension(n,m),intent(in) :: iters
-real*8,dimension(n,m,3),intent(out) :: image
-integer :: k,l
-real*8 :: T
+  use omp_lib
+  
+  implicit none
+  
+  integer,intent(in) :: n,m
+  integer,intent(in) :: depth
+  real*8,dimension(n,m),intent(in) :: iters
+  real*8,dimension(3,n,m),intent(out) :: image
+  
+  integer :: k,l
+  real*8 :: T
 
-image = 0.d0
+  image = 0.d0
 
-!If the image is small enough spreading the computation out on multiple cores is unnecessary and slows it down.
-if(m < 300) then
-  do l=1,m
-      do k=1,n
-          T=iters(k,l)
+  !If the image is small enough spreading the computation out on multiple cores is unnecessary and slows it down.
+  if(m < 300) then
+    do l=1,m
+        do k=1,n
+            T=iters(k,l)
 
-          !Maybe this is faster?
-          if(T == 0.d0) then
-            image(k,l,:) = 0.d0
-          else
-            !call get_colour(image(k,l,:),iters(k,l),depth)
-            image(k,l,1) = T * (depth**(1.d0 - (T**45.d0) * 2.d0))
-            image(k,l,2) = (T * 70.d0) - (880.d0 * (T**18.d0)) + (701.d0 * (T**9.d0))
-            image(k,l,3) = (T * 80.d0) + ((T**9.d0) * depth) - (950.d0 * (T**99.d0))
-          end if
-      end do
-  end do
-else
-  !$OMP parallel do shared(image,iters) private(T)
-  do l=1,m
-      do k=1,n
-          T=iters(k,l)
+            !Maybe this is faster?
+            if(T == 0.d0) then
+              image(:,k,l) = 0.d0
+            else
+              !call get_colour(image(k,l,:),iters(k,l),depth)
+              image(:,k,l) = (/T * (depth**(1.d0 - (T**45.d0) * 2.d0)),&
+                             (T * 70.d0) - (880.d0 * (T**18.d0)) + (701.d0 * (T**9.d0)),&
+                             (T * 80.d0) + ((T**9.d0) * depth) - (950.d0 * (T**99.d0))/)
+            end if
+        end do
+    end do
+  else
+    !$OMP parallel do shared(image,iters) private(T)
+    do l=1,m
+        do k=1,n
+            T=iters(k,l)
 
-          if(T == 0.d0) then
-            image(k,l,:) = 0.d0
-          else
-            image(k,l,1) = T * (depth**(1.d0 - (T**45.d0) * 2.d0))
-            image(k,l,2) = (T * 70.d0) - (880.d0 * (T**18.d0)) + (701.d0 * (T**9.d0))
-            image(k,l,3) = (T * 80.d0) + ((T**9.d0) * depth) - (950.d0 * (T**99.d0))
-          end if
-      end do
-  end do
-  !$OMP end parallel do
-
-end if
-
+            if(T == 0.d0) then
+              image(:,k,l) = 0.d0
+            else
+              image(:,k,l) = (/T * (depth**(1.d0 - (T**45.d0) * 2.d0)),&
+                             (T * 70.d0) - (880.d0 * (T**18.d0)) + (701.d0 * (T**9.d0)),&
+                             (T * 80.d0) + ((T**9.d0) * depth) - (950.d0 * (T**99.d0))/)
+            end if
+        end do
+    end do
+    !$OMP end parallel do
+  end if
 
 end subroutine fcolour
 
