@@ -1,10 +1,14 @@
-real(kind(1d0)) pure function iterate(cr,ci,maxiters,depth)
+pure real(kind(1d0)) function iterate(cr,ci,maxiters,depth)
     !Iterates the mandelbrot function for cr+i*ci until either
     !it converges or reaches maxiters iterations.
     !Returns a double between 0 and 1.
     !0 if in the set and increasing to 1 the further out.
     !Also scales the computation result based on how far out the point got.
     !This results in smoother colour shading.
+    !cr: real part of the complex value to iterate
+    !ci: imaginary part of the complex value to iterate
+    !maxiters: the maximum number of iterations before stopping
+    !depth: the colour depth of the eventual image.
     implicit none
     real(kind(1d0)),    intent(in)  :: cr, ci
     integer,            intent(in)  :: maxiters, depth
