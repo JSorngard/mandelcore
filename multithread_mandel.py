@@ -311,11 +311,11 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 			if ssaa :
 				if debug:
 					print("Iterating Mandelbrot with SSAAx"+str(ssfactor**2)+"...")
-				result = mandelfortran.iterate_supersampled(re_points,im_points,iters,depth,ssfactor,deltar,deltai)
+				result = mandelfortran.render_ssaa(re_points,im_points,iters,depth,ssfactor,deltar,deltai)
 			else:
 				if debug:
 					print("Iterating Mandelbrot...")
-				result = mandelfortran.iterate(re_points,im_points,iters,depth)
+				result = mandelfortran.render(re_points,im_points,iters,depth)
 		except MemoryError:
 			print("Out of memory when sending work to Fortran.")
 			return 0
