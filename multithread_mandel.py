@@ -227,7 +227,7 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 		#We can get away with doing only half the work if we are centered on the real axis due to mirror symmetry.
 		mirror = np.imag(fractal_center) == 0
 		if mirror:
-			if np.mod(im_eval_points,2)==0:
+			if np.mod(im_eval_points,2) == 0:
 				im_eval_points = int(im_eval_points/2)
 			else:
 				print("Number of imaginary points must be even.")
@@ -272,10 +272,6 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 			elif debug:
 				print("Tile "+recursed+" of size "+quantity_suffix(grid_size)+"B is too large for memory,\nsplitting into tiles "+next_recursed_one+" and "+next_recursed_two+"...\n")
 
-
-			#next_recursed_one = [recursed[0]+1,2*recursed[1]-1,2*recursed[1]]
-			#next_recursed_two = [recursed[0]+1,2*recursed[2]-1,2*recursed[2]]
-
 			aspect_ratio *= 0.5
 			if not mirror:
 				im_eval_points = int(im_eval_points/2)
@@ -301,25 +297,15 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 #----------------------------Fractal evaluation section----------------------------------
 
 		if debug:
-			#if im_eval_points < 200: #This limit is hard coded into the fortran code as of right now.
-			#	print("Evaluating with a single core due to the image size...")
-			#else:
-			#	print("Evaluating on "+str(cores)+" cores...")
 			time = get_time()
 
-		try:
-			if ssaa :
-				if debug:
-					print("Iterating Mandelbrot with SSAAx"+str(ssfactor**2)+"...")
-				result = mandelfortran.render_ssaa(re_points,im_points,iters,depth,ssfactor,deltar,deltai)
+		if debug:
+			if ssaa:
+				print("Rendering Mandelbrot with SSAAx"+str(ssfactor**2)+"...")
 			else:
-				if debug:
-					print("Iterating Mandelbrot...")
-				result = mandelfortran.render(re_points,im_points,iters,depth)
-		except MemoryError:
-			print("Out of memory when sending work to Fortran.")
-			return 0
-		
+				print("Rendering Mandelbrot...")
+		result = mandelfortran.render_ssaa(re_points,im_points,iters,depth,ssfactor,deltar,deltai,gamma)
+
 		if debug:
 			time = get_time() - time
 			print(" done in "+str(time)[:4]+" seconds.")			
@@ -327,77 +313,75 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 #----------------------------Image post-processing section-------------------------------
 
 		if saveimage:
-			if debug:
-				print("\nPerforming image manipulations...")
-				time = get_time()
+			time = get_time()
 			
-			gammaname = ""
-			if gamma != 1.:
-				if debug:
-					print(" changing gamma...")
-				try:
-			 		result = powah(result,gamma)
-			 		#result = mandelfortran.multicore_pow(result,gamma)
-				except MemoryError:
-					print("Out of memory when changing gamma.")
-					result = None
-					return 0
+			#gammaname = ""
+			#if gamma != 1.:
+			#	if debug:
+			#		print(" changing gamma...")
+			#	try:
+			# 		result = powah(result,gamma)
+			# 		#result = mandelfortran.multicore_pow(result,gamma)
+			#	except MemoryError:
+			#		print("Out of memory when changing gamma.")
+			#		result = None
+			#		return 0
 
-			if blur:
-				if debug:
-					print(" blurring...")
-				try:
-					if debug:
-						print("  generating target...")
-					blurred = np.zeros(np.shape(result))
-					if debug:
-						print("  computing gaussian blur...")
-					blurred = imagefortran.fastgauss(result,radius)
-					result = blurred
-				except MemoryError:
-					print("Out of memory when blurring the image.")
-					result = None
-					blurred = None
-					return 0
+			#if blur:
+			#	if debug:
+			#		print(" blurring...")
+			#	try:
+			#		if debug:
+			#			print("  generating target...")
+			#		blurred = np.zeros(np.shape(result))
+			#		if debug:
+			#			print("  computing gaussian blur...")
+			#		blurred = imagefortran.fastgauss(result,radius)
+			#		result = blurred
+			#	except MemoryError:
+			#		print("Out of memory when blurring the image.")
+			#		result = None
+			#		blurred = None
+			#		return 0
 
-				blurred = None
+			#	blurred = None
 
-			if colorize:
-				if debug:
-					print(" colouring...")
-				try:
-					#Shifts the colouring so that the fastest escaping point is blue.
-					if colour_shift:
-						if debug:
-							print("  scaling for colour shift...")
-						result = np.multiply(result,.98/np.max(result))
-										
-					if debug and colour_shift:
-						print("  computing colours...")
-					result = imagefortran.fcolour(depth,result)
-					result = np.swapaxes(result, 0, -1)
-					result = np.swapaxes(result, 0, 1)
-				except MemoryError:
-					print("Out of memory when colouring the image.")
-					colourized = None
-					result = None
-					return 0
+			#if colorize:
+			#	if debug:
+			#		print(" colouring...")
+			#	try:
+			#		#Shifts the colouring so that the fastest escaping point is blue.
+			#		if colour_shift:
+			#			if debug:
+			#				print("  scaling for colour shift...")
+			#			result = np.multiply(result,.98/np.max(result))
+			#							
+			#		if debug and colour_shift:
+			#			print("  computing colours...")
+			#		result = imagefortran.fcolour(depth,result)
+			#		result = np.swapaxes(result, 0, -1)
+			#		result = np.swapaxes(result, 0, 1)
+			#	except MemoryError:
+			#		print("Out of memory when colouring the image.")
+			#		colourized = None
+			#		result = None
+			#		return 0
 
-				colourized = None
-			else:
-				if colour_shift:
-					if debug:
-						print(" scaling")
-					result = np.multiply(result,.98/np.max(result))
+			#	colourized = None
+			#else:
+			#	if colour_shift:
+			#		if debug:
+			#			print(" scaling")
+			#		result = np.multiply(result,.98/np.max(result))
 
-				if debug:
-					print(" fitting to color depth...")
-				#Scale up to 0-depth.
-				result *= depth
+			#	if debug:
+			#		print(" fitting to color depth...")
+			#	#Scale up to 0-depth.
+			#	result *= depth
 
-				#Invert so that black is 0 and white is depth.
-				#result -= depth 
-				#result = np.abs(result) 
+			#	#Invert so that black is 0 and white is depth.
+			#	#result -= depth 
+			#	#result = np.abs(result) 
 		
 			#Convert to uints for image saving.
 			result = result.astype(np.uint8)
@@ -406,25 +390,26 @@ def mandelbrot(fractal_center,im_dist,re_eval_points,im_eval_points,aspect_ratio
 				if debug:
 					print(" mirroring...")
 				#Adds a flipped copy of the image to the top.
-				try:
-					result = np.concatenate((np.flip(result,axis=0),result))
-				except AttributeError:
-					try:
-						result = np.concatenate((result[::-1],result))
-					except MemoryError:
-						print("Out of memory when mirroring image.")
-						result = None
-						return 0
-				except MemoryError:
-					print("Out of memory when mirroring image.")
-					result = None
-					return 0
+				#try:
+				result = np.concatenate((np.flip(result,axis=1),result))
+				#except AttributeError:
+				#	try:
+				#		result = np.concatenate((result[::-1],result))
+				#	except MemoryError:
+				#		print("Out of memory when mirroring image.")
+				#		result = None
+				#		return 0
+				#except MemoryError:
+				#	print("Out of memory when mirroring image.")
+				#	result = None
+				#	return 0
 
 				if debug:
 					time = get_time() - time
 					#Need an extra digit of precision if the image is small.
 					accuracy = 4 if im_eval_points > 200 else 5
 					print(" done in "+str(time)[:accuracy]+" seconds.")
+
 
 		return result
 	
